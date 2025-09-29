@@ -100,25 +100,28 @@ const OrderScreen: React.FC = () => {
     } else if (mainTab === 'Procured') {
       return (
         <View style={styles.procuredContainer}>
-          <View style={styles.procuredSummary}>
-            <Text>Total Payable</Text>
-            <Text style={styles.amount}>₹ 0</Text>
+          <View style={styles.procuredBox}>
+            <View style={styles.procuredRow}>
+              <Text style={styles.procuredLabel}>Total Payable</Text>
+              <Text style={styles.procuredAmount}>₹ 0</Text>
+            </View>
+            <View style={styles.procuredRow}>
+              <Text style={styles.procuredLabel}>Account Balance</Text>
+              <Text style={styles.procuredAmount}>₹ 0</Text>
+            </View>
+            <View style={[styles.procuredRow, styles.procuredRowHighlight]}>
+              <Text style={styles.procuredLabel}>Pending deposit</Text>
+              <Text style={styles.procuredAmount}>₹ 0</Text>
+            </View>
           </View>
-          <View style={styles.procuredSummary}>
-            <Text>Account Balance</Text>
-            <Text style={styles.amount}>₹ 0</Text>
-          </View>
-          <View style={styles.procuredSummary}>
-            <Text>Pending deposit</Text>
-            <Text style={styles.amount}>₹ 0</Text>
-          </View>
+
           <View style={styles.emptyStateContainer}>
             <Text style={styles.subtitle}>
               Oops, you have no procured cars.
             </Text>
             <Text style={styles.subtitle}>Keep Bidding!</Text>
-            <TouchableOpacity style={styles.refreshButton}>
-              <Text style={styles.refreshText}>REFRESH</Text>
+            <TouchableOpacity style={styles.disabledRefreshButton}>
+              <Text style={styles.disabledRefreshText}>REFRESH</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -134,12 +137,10 @@ const OrderScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header Title */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Orders</Text>
       </View>
 
-      {/* Main Tabs */}
       <View style={styles.mainTabs}>
         {['In Negotiation', 'Procured', 'RC Transfer'].map(tab => {
           const value = tab.replace(' ', '') as
@@ -166,7 +167,6 @@ const OrderScreen: React.FC = () => {
         })}
       </View>
 
-      {/* Sub Tabs */}
       {mainTab === 'InNegotiation' && (
         <View style={styles.subTabs}>
           {['InNego', 'Lost'].map(tab => (
@@ -189,7 +189,6 @@ const OrderScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Render Content */}
       {renderContent()}
     </View>
   );
@@ -265,6 +264,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   homeButtonText: {color: '#FF7F50', fontWeight: 'bold', fontSize: 16},
+
   card: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -294,26 +294,45 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  procuredSummary: {
+  procuredBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  procuredRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingHorizontal: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  amount: {
+  procuredRowHighlight: {
+    backgroundColor: '#EAF4FF',
+    borderBottomWidth: 0,
+  },
+  procuredLabel: {
+    fontSize: 14,
+    color: '#333',
+  },
+  procuredAmount: {
     fontWeight: 'bold',
     color: '#000',
   },
-  refreshButton: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    paddingVertical: 6,
-    paddingHorizontal: 16,
+  disabledRefreshButton: {
+    marginTop: 20,
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  refreshText: {
-    color: '#666',
+  disabledRefreshText: {
+    color: '#888',
     fontWeight: '600',
   },
 });
