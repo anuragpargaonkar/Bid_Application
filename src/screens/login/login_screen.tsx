@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../components/appnavigator';
- 
+
 /**
  * LoginScreen component for user authentication.
  * @returns {JSX.Element}
