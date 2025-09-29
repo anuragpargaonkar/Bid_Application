@@ -18,8 +18,8 @@ const HomeScreen: React.FC = () => {
  
   // Placeholder assets - Use distinct placeholder paths if you have multiple car photos!
   const carImageSource1 = require('../../assets/images/car1.png'); // Renamed for clarity
-  const carImageSource2 = require('../../assets/images/car2.png'); // Renamed for clarity
-  const bannerImageSource = require('../../assets/images/car3.png');
+  const carImageSource2 = require('../../assets/images/car3.png'); // Renamed for clarity
+  const bannerImageSource = require('../../assets/images/car2.png');
  
   // Function to render a single Car Card component
   const renderCarCard = (carDetails: { title: string, subtitle: string, info: string, time: string, imageSource: any, isScrap: boolean }) => (
