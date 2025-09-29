@@ -47,12 +47,19 @@ const AccountScreen = () => {
             <Text style={styles.profileDetails}>7755994123</Text>
             <Text style={styles.profileDetails}>ID: 117103</Text>
           </View>
+          <Ionicons name="chevron-forward-outline" size={28} color="#666" />
         </TouchableOpacity>
 
         {/* ===== Payment + Sales agent cards ===== */}
         <View style={styles.twoCards}>
           {/* Payment Card */}
           <View style={styles.bigCard}>
+            <Ionicons
+              name="wallet-outline"
+              size={36}
+              color="#000"
+              style={{marginBottom: 12}}
+            />
             <Text style={styles.bigCardTitle}>Payment details</Text>
             <TouchableOpacity style={styles.rechargeBtn}>
               <Text style={styles.bigRechargeText}>₹0 | RECHARGE NOW</Text>
@@ -64,6 +71,12 @@ const AccountScreen = () => {
 
           {/* Sales Agent Card */}
           <View style={styles.bigCard}>
+            <Ionicons
+              name="person-outline"
+              size={36}
+              color="#000"
+              style={{marginBottom: 12}}
+            />
             <Text style={styles.bigCardTitle}>Sales agent</Text>
             <Text style={styles.bigCardSub}>Organic Mumbai</Text>
 
@@ -88,8 +101,23 @@ const AccountScreen = () => {
 
       {/* ===== Fixed Bottom Section ===== */}
       <View style={styles.bottomSection}>
+        {/* Do not disturb */}
         <View style={styles.largeListItem}>
-          <Text style={styles.largeListTitle}>Do not disturb</Text>
+          <View style={{flexDirection: 'column'}}>
+            <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
+              <Ionicons
+                name="moon-outline"
+                size={24}
+                color="#000"
+                style={{marginTop: 4}} // <-- lowered the icon
+              />
+              <Text style={styles.largeListTitle}> Do not disturb</Text>
+            </View>
+            <Text style={styles.largeListSubTitle}>
+              {' '}
+              Pause calls from CARS24 team
+            </Text>
+          </View>
           <Switch
             trackColor={{false: '#ccc', true: '#4B23A0'}}
             thumbColor={doNotDisturb ? '#fff' : '#f4f3f4'}
@@ -99,8 +127,20 @@ const AccountScreen = () => {
           />
         </View>
 
+        {/* CARS24 rewards with rupee icon */}
         <TouchableOpacity style={styles.largeListItem}>
-          <Text style={styles.largeListTitle}>CARS24 rewards</Text>
+          <View style={{flexDirection: 'column'}}>
+            <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
+              <Ionicons
+                name="cash-outline"
+                size={24}
+                color="#000"
+                style={{marginTop: 4}} // <-- lowered the icon
+              />
+              <Text style={styles.largeListTitle}> CARS24 Rewards</Text>
+            </View>
+            <Text style={styles.largeListSubTitle}> View your Rewards</Text>
+          </View>
           <Ionicons name="chevron-forward-outline" size={28} color="#666" />
         </TouchableOpacity>
       </View>
@@ -246,6 +286,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ddd',
   },
   largeListTitle: {fontSize: 18, fontWeight: '600', color: '#000'},
+  largeListSubTitle: {fontSize: 14, color: '#666', marginTop: 4},
 });
 
 export default AccountScreen;
