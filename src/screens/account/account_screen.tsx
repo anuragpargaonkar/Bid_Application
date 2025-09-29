@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const AccountScreen = () => {
   const [doNotDisturb, setDoNotDisturb] = useState(false);
@@ -21,10 +21,10 @@ const AccountScreen = () => {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity>
-            <Icon name="arrow-back" size={28} color="#000" />
+            <Ionicons name="arrow-back" size={28} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
-          <Icon name="headset-outline" size={28} color="#000" />
+          <Ionicons name="headset-outline" size={28} color="#000" />
         </View>
 
         {/* Top Banner */}
@@ -41,7 +41,7 @@ const AccountScreen = () => {
 
         {/* Profile Card */}
         <TouchableOpacity style={styles.profileCard}>
-          <Icon name="person-circle-outline" size={54} color="#6A6A6A" />
+          <Ionicons name="person-circle-outline" size={54} color="#6A6A6A" />
           <View style={styles.profileText}>
             <Text style={styles.profileName}>A3 MOTORS</Text>
             <Text style={styles.profileDetails}>7755994123</Text>
@@ -49,7 +49,7 @@ const AccountScreen = () => {
           </View>
         </TouchableOpacity>
 
-        {/* ======= Payment + Sales agent cards ======= */}
+        {/* ===== Payment + Sales agent cards ===== */}
         <View style={styles.twoCards}>
           {/* Payment Card */}
           <View style={styles.bigCard}>
@@ -101,7 +101,7 @@ const AccountScreen = () => {
 
         <TouchableOpacity style={styles.largeListItem}>
           <Text style={styles.largeListTitle}>CARS24 rewards</Text>
-          <Icon name="chevron-forward-outline" size={28} color="#666" />
+          <Ionicons name="chevron-forward-outline" size={28} color="#666" />
         </TouchableOpacity>
       </View>
     </View>
