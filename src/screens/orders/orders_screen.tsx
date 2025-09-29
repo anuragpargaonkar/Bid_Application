@@ -1,0 +1,319 @@
+// src/screens/orders/OrderScreen.tsx
+import React, {useState} from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Dimensions,
+  ScrollView,
+} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+
+const {width} = Dimensions.get('window');
+
+const lostCars = [
+  {
+    id: '10695486765',
+    date: '21-08-2025',
+    name: '2004 QUALIS GS G4',
+    price: '₹ 1,41,000',
+    image: require('../../assets/images/car1.png'),
+  },
+  {
+    id: '10601821706',
+    date: '01-03-2025',
+    name: '2012 Vento COMFORTLINE 1.6',
+    price: '₹ 1,96,000',
+    image: require('../../assets/images/car2.png'),
+  },
+  {
+    id: '12584789725',
+    date: '08-05-2024',
+    name: '2012 A Star VXI (ABS) AT',
+    price: '₹ 1,44,600',
+    image: require('../../assets/images/car3.png'),
+  },
+  {
+    id: '10319486766',
+    date: '27-04-2024',
+    name: '2015 Wagon R Stingray VXI',
+    price: '₹ 2,76,600',
+    image: require('../../assets/images/car4.png'),
+  },
+];
+
+const OrderScreen: React.FC = () => {
+  const navigation = useNavigation();
+
+  const [mainTab, setMainTab] = useState<
+    'InNegotiation' | 'Procured' | 'RCTransfer'
+  >('InNegotiation');
+
+  const [subTab, setSubTab] = useState<'InNego' | 'Lost'>('InNego');
+
+  const renderContent = () => {
+    if (mainTab === 'InNegotiation') {
+      if (subTab === 'InNego') {
+        return (
+          <View style={styles.emptyStateContainer}>
+            <Image
+              source={require('../../assets/images/car4.png')}
+              style={styles.image}
+              resizeMode="contain"
+            />
+            <Text style={styles.title}>Nothing to see here</Text>
+            <Text style={styles.subtitle}>
+              Go back to home to participate in auctions
+            </Text>
+            <TouchableOpacity
+              style={styles.homeButton}
+              onPress={() => navigation.navigate('Home' as never)}>
+              <Text style={styles.homeButtonText}>Home</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      } else {
+        return (
+          <ScrollView style={{padding: 16}}>
+            {lostCars.map(car => (
+              <View key={car.id} style={styles.card}>
+                <Text style={styles.lostDate}>LOST ON {car.date}</Text>
+                <View style={styles.cardContent}>
+                  <Image
+                    source={car.image}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                  />
+                  <View style={{flex: 1, paddingLeft: 10}}>
+                    <Text style={styles.carTitle}>{car.name}</Text>
+                    <Text style={styles.carPrice}>{car.price}</Text>
+                    <Text style={styles.carId}>Appt.ID- {car.id}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        );
+      }
+    } else if (mainTab === 'Procured') {
+      return (
+        <View style={styles.procuredContainer}>
+          <View style={styles.procuredSummary}>
+            <Text>Total Payable</Text>
+            <Text style={styles.amount}>₹ 0</Text>
+          </View>
+          <View style={styles.procuredSummary}>
+            <Text>Account Balance</Text>
+            <Text style={styles.amount}>₹ 0</Text>
+          </View>
+          <View style={styles.procuredSummary}>
+            <Text>Pending deposit</Text>
+            <Text style={styles.amount}>₹ 0</Text>
+          </View>
+          <View style={styles.emptyStateContainer}>
+            <Text style={styles.subtitle}>
+              Oops, you have no procured cars.
+            </Text>
+            <Text style={styles.subtitle}>Keep Bidding!</Text>
+            <TouchableOpacity style={styles.refreshButton}>
+              <Text style={styles.refreshText}>REFRESH</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    } else {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.title}>No data available</Text>
+        </View>
+      );
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Header Title */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Orders</Text>
+      </View>
+
+      {/* Main Tabs */}
+      <View style={styles.mainTabs}>
+        {['In Negotiation', 'Procured', 'RC Transfer'].map(tab => {
+          const value = tab.replace(' ', '') as
+            | 'InNegotiation'
+            | 'Procured'
+            | 'RCTransfer';
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.mainTabButton,
+                mainTab === value && styles.activeMainTab,
+              ]}
+              onPress={() => setMainTab(value)}>
+              <Text
+                style={[
+                  styles.mainTabText,
+                  mainTab === value && styles.activeMainTabText,
+                ]}>
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Sub Tabs */}
+      {mainTab === 'InNegotiation' && (
+        <View style={styles.subTabs}>
+          {['InNego', 'Lost'].map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.subTabButton,
+                subTab === tab && styles.activeSubTab,
+              ]}
+              onPress={() => setSubTab(tab as any)}>
+              <Text
+                style={[
+                  styles.subTabText,
+                  subTab === tab && styles.activeSubTabText,
+                ]}>
+                {tab === 'InNego' ? 'In nego 0' : 'Lost'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Render Content */}
+      {renderContent()}
+    </View>
+  );
+};
+
+export default OrderScreen;
+
+const styles = StyleSheet.create({
+  container: {flex: 1, backgroundColor: '#fff'},
+  header: {
+    paddingTop: 50,
+    paddingBottom: 10,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    marginRight: 340,
+  },
+
+  mainTabs: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  mainTabButton: {paddingVertical: 8, paddingHorizontal: 12},
+  mainTabText: {fontSize: 16, color: '#555'},
+  activeMainTab: {borderBottomWidth: 2, borderBottomColor: '#007AFF'},
+  activeMainTabText: {color: '#007AFF', fontWeight: 'bold'},
+
+  subTabs: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#f0a500',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  subTabButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+  },
+  subTabText: {color: '#555', fontSize: 14},
+  activeSubTab: {backgroundColor: '#FFE5D1'},
+  activeSubTabText: {color: '#FF7F50', fontWeight: 'bold'},
+
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  image: {width: width * 0.5, height: width * 0.5, marginBottom: 20},
+  title: {fontSize: 18, fontWeight: '600', marginBottom: 8},
+  subtitle: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  homeButton: {
+    backgroundColor: '#FFE5D1',
+    paddingHorizontal: 30,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  homeButtonText: {color: '#FF7F50', fontWeight: 'bold', fontSize: 16},
+  card: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 16,
+    padding: 10,
+  },
+  lostDate: {
+    fontSize: 12,
+    color: '#FF7F7F',
+    marginBottom: 6,
+    fontWeight: 'bold',
+  },
+  cardContent: {
+    flexDirection: 'row',
+  },
+  cardImage: {
+    width: 80,
+    height: 60,
+    borderRadius: 4,
+  },
+  carTitle: {fontSize: 15, fontWeight: '600'},
+  carPrice: {color: '#000', marginVertical: 4},
+  carId: {fontSize: 12, color: '#666'},
+
+  procuredContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  procuredSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 6,
+  },
+  amount: {
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  refreshButton: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  refreshText: {
+    color: '#666',
+    fontWeight: '600',
+  },
+});

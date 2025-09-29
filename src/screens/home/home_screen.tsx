@@ -1,5 +1,5 @@
 // src/screens/Home/HomeScreen.tsx
-import React from "react";
+import React from 'react';
 import {
   View,
   Text,
@@ -9,25 +9,24 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-} from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
-const categories = ["PA Recommended", "Service History", "BMW X1", "HONDA"];
+const categories = ['PA Recommended', 'Service History', 'BMW X1', 'HONDA'];
 const cars = [
   {
-    id: "1",
-    name: "AC",
+    id: '1',
+    name: 'AC',
     year: 2005,
-    model: "800",
+    model: '800',
     km: 71076,
-    owner: "1st owner",
-    fuel: "Petrol",
-    location: "Mumbai • MH-01",
-    engine: "1.0",
-    image:
-      "https://upload.wikimedia.org/wikipedia/commons/4/4a/Maruti_800.jpg",
+    owner: '1st owner',
+    fuel: 'Petrol',
+    location: 'Mumbai • MH-01',
+    engine: '1.0',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/4/4a/Maruti_800.jpg',
     isScrap: true,
-    highestBid: "01:25:37",
+    highestBid: '01:25:37',
   },
   // Add more car objects here
 ];
@@ -61,7 +60,7 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
           <Image
             source={{
-              uri: "https://upload.wikimedia.org/wikipedia/commons/7/79/2018_Volkswagen_Polo_GT_front.jpg",
+              uri: 'https://upload.wikimedia.org/wikipedia/commons/7/79/2018_Volkswagen_Polo_GT_front.jpg',
             }}
             style={styles.bannerImage}
           />
@@ -93,10 +92,10 @@ const HomeScreen: React.FC = () => {
       <Text style={styles.sectionTitle}>Live cars</Text>
       <FlatList
         data={cars}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        keyExtractor={item => item.id}
+        renderItem={({item}) => (
           <View style={styles.carCard}>
-            <Image source={{ uri: item.image }} style={styles.carImage} />
+            <Image source={{uri: item.image}} style={styles.carImage} />
             {item.isScrap && (
               <View style={styles.scrapBadge}>
                 <Text style={styles.scrapText}>SCRAP CAR</Text>
@@ -123,62 +122,100 @@ const HomeScreen: React.FC = () => {
           Low Account Balance. Deposit Rs. 10000 to continue bidding.
         </Text>
       </View>
-
-      {/* Bottom Tabs */}
-      <View style={styles.bottomTabs}>
-        <TouchableOpacity style={styles.tab}>
-          <Ionicons name="home-outline" size={24} />
-          <Text>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Ionicons name="car-outline" size={24} />
-          <Text>My Cars</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Ionicons name="clipboard-outline" size={24} />
-          <Text>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Ionicons name="layers-outline" size={24} />
-          <Text>Add Ons</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Ionicons name="person-outline" size={24} />
-          <Text>Account</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
 
 export default HomeScreen;
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 40 },
-  topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, marginBottom: 10 },
-  location: { flexDirection: "row", alignItems: "center", marginRight: 10, backgroundColor: "#f0f0f0", paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6 },
-  locationText: { fontWeight: "bold" },
-  searchInput: { flex: 1, backgroundColor: "#f0f0f0", borderRadius: 8, paddingHorizontal: 10, height: 40 },
-  buyButton: { marginLeft: 10, backgroundColor: "#dcdcff", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
-  buyText: { color: "#4b4bff" },
-  banner: { flexDirection: "row", backgroundColor: "#4b4bff", marginHorizontal: 10, borderRadius: 10, padding: 10, alignItems: "center" },
-  bannerText: { color: "#fff", flex: 1, fontWeight: "bold" },
-  exploreButton: { backgroundColor: "#fff", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 10 },
-  exploreText: { color: "#4b4bff" },
-  bannerImage: { width: 80, height: 50, resizeMode: "contain" },
-  filterSort: { flexDirection: "row", justifyContent: "space-between", marginHorizontal: 10, marginVertical: 10 },
-  filterButton: { flexDirection: "row", alignItems: "center" },
-  sortButton: { flexDirection: "row", alignItems: "center" },
-  categoryButton: { backgroundColor: "#f0f0f0", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginHorizontal: 5 },
-  sectionTitle: { fontWeight: "bold", fontSize: 18, margin: 10 },
-  carCard: { backgroundColor: "#fff", marginHorizontal: 10, marginBottom: 10, borderRadius: 10, overflow: "hidden", elevation: 2 },
-  carImage: { width: "100%", height: 150 },
-  scrapBadge: { position: "absolute", top: 10, left: 10, backgroundColor: "#ff4d4d", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  scrapText: { color: "#fff", fontSize: 12, fontWeight: "bold" },
-  carDetails: { padding: 10 },
-  carName: { fontWeight: "bold", fontSize: 16, marginVertical: 4 }, // ✅ Add this
-  lowBalance: { backgroundColor: "#ff4d4d", padding: 10, alignItems: "center" },
-  lowBalanceText: { color: "#fff", textAlign: "center" },
-  bottomTabs: { flexDirection: "row", justifyContent: "space-around", borderTopWidth: 1, borderTopColor: "#ccc", paddingVertical: 5 },
-  tab: { alignItems: "center" },
-});
 
+const styles = StyleSheet.create({
+  container: {flex: 1, backgroundColor: '#fff', paddingTop: 40},
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  location: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  locationText: {fontWeight: 'bold'},
+  searchInput: {
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 40,
+  },
+  buyButton: {
+    marginLeft: 10,
+    backgroundColor: '#dcdcff',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  buyText: {color: '#4b4bff'},
+  banner: {
+    flexDirection: 'row',
+    backgroundColor: '#4b4bff',
+    marginHorizontal: 10,
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+  },
+  bannerText: {color: '#fff', flex: 1, fontWeight: 'bold'},
+  exploreButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  exploreText: {color: '#4b4bff'},
+  bannerImage: {width: 80, height: 50, resizeMode: 'contain'},
+  filterSort: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 10,
+    marginVertical: 10,
+  },
+  filterButton: {flexDirection: 'row', alignItems: 'center'},
+  sortButton: {flexDirection: 'row', alignItems: 'center'},
+  categoryButton: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginHorizontal: 5,
+  },
+  sectionTitle: {fontWeight: 'bold', fontSize: 18, margin: 10},
+  carCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 10,
+    marginBottom: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 2,
+  },
+  carImage: {width: '100%', height: 150},
+  scrapBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: '#ff4d4d',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  scrapText: {color: '#fff', fontSize: 12, fontWeight: 'bold'},
+  carDetails: {padding: 10},
+  carName: {fontWeight: 'bold', fontSize: 16, marginVertical: 4},
+  lowBalance: {backgroundColor: '#ff4d4d', padding: 10, alignItems: 'center'},
+  lowBalanceText: {color: '#fff', textAlign: 'center'},
+});
