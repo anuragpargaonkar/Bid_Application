@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -9,24 +9,17 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../components/appnavigator';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../../components/appnavigator';
 
-/**
- * LoginScreen component for user authentication.
- * @returns {JSX.Element}
- */
 const LoginScreen: React.FC = () => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
- 
-  /**
-   * Handles login action.
-   */
+
   const handleLogin = () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password.');
@@ -34,29 +27,24 @@ const LoginScreen: React.FC = () => {
     }
     navigation.navigate('Home');
   };
- 
-  /**
-   * Navigates to the SignUp screen.
-   */
+
   const handleSignUp = () => {
     navigation.navigate('SignUp');
   };
- 
-  /**
-   * Handles forgot password action.
-   */
+
   const handleForgotPassword = () => {
     Alert.alert('Forgot Password', 'Password reset flow goes here.');
   };
- 
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.inner}>
-          <Text style={styles.title}>Log in</Text>
+          <Text style={styles.title}>Welcome Back </Text>
+          <Text style={styles.subtitle}>Log in to continue</Text>
+
           <TextInput
             style={styles.input}
             placeholder="Email address"
@@ -64,7 +52,7 @@ const LoginScreen: React.FC = () => {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#888"
+            placeholderTextColor="#999"
           />
           <TextInput
             style={styles.input}
@@ -72,118 +60,132 @@ const LoginScreen: React.FC = () => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            placeholderTextColor="#888"
+            placeholderTextColor="#999"
           />
+
           <TouchableOpacity
             style={styles.forgotPassword}
-            onPress={handleForgotPassword}
-          >
+            onPress={handleForgotPassword}>
             <Text style={styles.forgotPasswordText}>Forgot password?</Text>
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.button} onPress={handleLogin}>
             <Text style={styles.buttonText}>Log in</Text>
           </TouchableOpacity>
+
           <View style={styles.orRow}>
             <View style={styles.line} />
             <Text style={styles.orText}>or</Text>
             <View style={styles.line} />
           </View>
+
           <TouchableOpacity onPress={handleSignUp}>
-            <Text style={styles.signUpText}>Sign up</Text>
+            <Text style={styles.signUpText}>
+              Don’t have an account?{' '}
+              <Text style={styles.signUpLink}>Sign up</Text>
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
- 
+
 export default LoginScreen;
- 
-/**
- * Styles for the LoginScreen component.
- */
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f9fafb',
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff.',
     justifyContent: 'center',
     alignItems: 'center',
   },
   inner: {
-    width: '90%',
+    width: '88%',
     alignItems: 'center',
-    marginTop: -40,
   },
   title: {
-    fontSize: 38,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: '700',
     color: '#222',
-    marginBottom: 16,
-    marginTop: 24,
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#555',
+    marginBottom: 28,
   },
   input: {
     width: '100%',
     height: 54,
-    borderColor: '#e5e5e5',
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    marginBottom: 14,
-    backgroundColor: '#fafbfc',
-    fontSize: 18,
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    fontSize: 16,
     color: '#222',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginBottom: 18,
+    marginBottom: 24,
   },
   forgotPasswordText: {
-    color: '#1976d2',
+    color: '#2563eb',
     fontSize: 15,
     fontWeight: '500',
   },
   button: {
     width: '100%',
     height: 54,
-    backgroundColor: '#1976d2',
-    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 4,
+    marginBottom: 28,
+    shadowColor: '#2563eb',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   buttonText: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 20,
+    fontWeight: '600',
+    fontSize: 18,
   },
   orRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 18,
+    marginBottom: 16,
   },
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: '#e5e5e5',
+    backgroundColor: '#e5e7eb',
   },
   orText: {
     marginHorizontal: 12,
     color: '#888',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
   },
   signUpText: {
-    color: '#1976d2',
-    fontSize: 20,
-    fontWeight: '500',
-    marginTop: 0,
+    fontSize: 16,
+    color: '#444',
+  },
+  signUpLink: {
+    color: '#2563eb',
+    fontWeight: '600',
   },
 });
- 
- 

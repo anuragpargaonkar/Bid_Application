@@ -46,7 +46,7 @@ const MyCarsScreen = () => {
       {/* Empty State */}
       <View style={styles.emptyContainer}>
         <Image
-          source={require("../../assets/images/gavel.png")}
+          source={require("../../assets/images/hammer.png")}
           style={styles.emptyImage}
         />
         <Text style={styles.emptyTitle}>You haven't placed any bids, yet</Text>
@@ -105,8 +105,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyImage: {
-    width: 120,
-    height: 120,
+    height: 180,
+    aspectRatio: 1,
     marginBottom: 16,
     resizeMode: "contain",
   },
@@ -133,3 +133,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+ 
+ 
