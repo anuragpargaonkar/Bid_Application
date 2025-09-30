@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   // --- Fixed Warning Banner ---
   warningFixedContainer: {
     position: 'absolute',
-    bottom: 55,
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: "#d32f2f",
@@ -564,23 +564,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
     lineHeight: 18,
-  },
-  // --- Bottom Navigation Bar ---
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingVertical: 5,
-    backgroundColor: '#fff',
-  },
-  navItem: {
-    alignItems: 'center',
-    padding: 5,
-  },
-  navText: {
-    fontSize: 10,
-    color: '#555',
-    marginTop: 2,
   },
 });
