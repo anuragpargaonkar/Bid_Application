@@ -198,13 +198,11 @@ export default OrderScreen;
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#fff'},
-  header: {
-    paddingTop: 50,
-    paddingBottom: 10,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+ header: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginVertical: 10,
+    marginLeft: 16,
   },
   headerTitle: {
     fontSize: 20,
@@ -212,7 +210,6 @@ const styles = StyleSheet.create({
     color: '#000',
     marginRight: 340,
   },
-
   mainTabs: {
     flexDirection: 'row',
     justifyContent: 'space-around',
