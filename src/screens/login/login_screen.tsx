@@ -5,187 +5,182 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
+  Dimensions,
+  StatusBar,
+  ImageBackground,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
-import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../../components/appnavigator';
+import LinearGradient from 'react-native-linear-gradient';
 
-const LoginScreen: React.FC = () => {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [email, setEmail] = useState('');
+// ✅ Default import instead of named import
+import useWebSocket from '../../Utilies/websocket';
+
+const {width, height} = Dimensions.get('window');
+
+// ------------------------------
+// Main Login Component
+// ------------------------------
+const Login = () => {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password.');
+  const navigation = useNavigation<any>();
+  const {connect} = useWebSocket(); // ✅ use the hook
+
+  // Handle Login
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert('Validation Error', 'Username and Password are required');
       return;
     }
-    navigation.navigate('Home');
+
+    try {
+      setLoading(true);
+      const response = await fetch(
+        'https://caryanamindia.prodchunca.in.net/jwt/login',
+        {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username, password}),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', 'Login Successful');
+        // ✅ Establish WebSocket connection
+        connect && connect();
+        navigation.navigate('Home');
+      } else {
+        Alert.alert('Login Failed', data.message || 'Invalid credentials');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+      console.error('Network Error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSignUp = () => {
-    navigation.navigate('SignUp');
-  };
-
-  const handleForgotPassword = () => {
-    Alert.alert('Forgot Password', 'Password reset flow goes here.');
-  };
-
+  // ------------------------------
+  // Render
+  // ------------------------------
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.inner}>
-          <Text style={styles.title}>Welcome Back </Text>
-          <Text style={styles.subtitle}>Log in to continue</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#4A5B80" />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email address"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor="#999"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholderTextColor="#999"
-          />
+      {/* Background Image */}
+      <ImageBackground
+        // source={BackgroundImage}
+        style={styles.background}
+        resizeMode="cover">
+        <LinearGradient
+          colors={['rgba(142,158,171,0.7)', 'rgba(74,91,128,0.7)']}
+          style={styles.gradientOverlay}
+        />
+      </ImageBackground>
 
-          <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={handleForgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-          </TouchableOpacity>
+      {/* Form Content */}
+      <View style={styles.content}>
+        <Text style={styles.title}>Login</Text>
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Log in</Text>
-          </TouchableOpacity>
+        {/* Username */}
+        <Text style={styles.label}>Username</Text>
+        <TextInput
+          placeholder="Enter username"
+          value={username}
+          onChangeText={setUsername}
+          style={styles.input}
+          placeholderTextColor="#999"
+        />
 
-          <View style={styles.orRow}>
-            <View style={styles.line} />
-            <Text style={styles.orText}>or</Text>
-            <View style={styles.line} />
-          </View>
+        {/* Password */}
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          placeholder="Enter password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+          placeholderTextColor="#999"
+        />
 
-          <TouchableOpacity onPress={handleSignUp}>
-            <Text style={styles.signUpText}>
-              Don’t have an account?{' '}
-              <Text style={styles.signUpLink}>Sign up</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {/* Forgot Password */}
+        <TouchableOpacity
+          style={styles.forgotContainer}
+          onPress={() => navigation.navigate('ForgotPassword')}>
+          <Text style={styles.forgotText}>Forgot Password?</Text>
+        </TouchableOpacity>
+
+        {/* Login Button */}
+        <TouchableOpacity
+          style={styles.loginButton}
+          onPress={handleLogin}
+          disabled={loading}>
+          <Text style={styles.loginButtonText}>
+            {loading ? 'Logging in...' : 'Login'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
-export default LoginScreen;
+export default Login;
 
+// ------------------------------
+// Styles
+// ------------------------------
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {flex: 1},
+  background: {...StyleSheet.absoluteFillObject, width, height},
+  gradientOverlay: {...StyleSheet.absoluteFillObject},
+  content: {
     flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  container: {
-    flex: 1,
+    paddingHorizontal: 24,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inner: {
-    width: '88%',
-    alignItems: 'center',
+    marginTop: height * 0.05,
+    zIndex: 1,
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
-    color: '#222',
-    marginBottom: 6,
+    fontWeight: 'bold',
+    marginBottom: 40,
+    color: '#000',
+    alignSelf: 'flex-start',
+    borderBottomWidth: 3,
+    borderBottomColor: '#2c3e94',
+    paddingBottom: 5,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 28,
-  },
+  label: {fontSize: 16, marginBottom: 6, color: '#000', fontWeight: '500'},
   input: {
-    width: '100%',
-    height: 54,
-    borderColor: '#e2e8f0',
     borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 16,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 16,
     backgroundColor: '#fff',
-    fontSize: 16,
-    color: '#222',
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    color: '#2563eb',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  button: {
-    width: '100%',
-    height: 54,
-    backgroundColor: '#2563eb',
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 28,
-    shadowColor: '#2563eb',
-    shadowOffset: {width: 0, height: 3},
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
     elevation: 3,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 18,
-  },
-  orRow: {
-    flexDirection: 'row',
+  forgotContainer: {alignItems: 'flex-end', marginBottom: 16},
+  forgotText: {color: '#2c3e94', fontSize: 14, fontWeight: '500'},
+  loginButton: {
+    backgroundColor: '#2c3e94',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 16,
+    shadowColor: '#2c3e94',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e7eb',
-  },
-  orText: {
-    marginHorizontal: 12,
-    color: '#888',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  signUpText: {
-    fontSize: 16,
-    color: '#444',
-  },
-  signUpLink: {
-    color: '#2563eb',
-    fontWeight: '600',
-  },
+  loginButtonText: {color: '#fff', fontWeight: 'bold', fontSize: 16},
 });
