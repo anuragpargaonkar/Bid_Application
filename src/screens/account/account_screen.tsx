@@ -9,9 +9,9 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-const AccountScreen = ({navigation}: any) => {
+const AccountScreen = () => {
   const [doNotDisturb, setDoNotDisturb] = useState(false);
-
+ 
   return (
     <View style={styles.container}>
       <ScrollView
@@ -28,7 +28,7 @@ const AccountScreen = ({navigation}: any) => {
           <Ionicons name="headset-outline" size={28} color="#000" />
         </View>
 
-        {/* ===== Top Banner ===== */}
+        {/* Top Banner */}
         <View style={styles.topBanner}>
           <Text style={styles.topBannerText}>Get unlimited app access</Text>
           <Text style={styles.topBannerSub}>
@@ -40,7 +40,7 @@ const AccountScreen = ({navigation}: any) => {
           </TouchableOpacity>
         </View>
 
-        {/* ===== Profile Card ===== */}
+        {/* Profile Card */}
         <TouchableOpacity style={styles.profileCard}>
           <Ionicons name="person-circle-outline" size={54} color="#6A6A6A" />
           <View style={styles.profileText}>
@@ -51,7 +51,7 @@ const AccountScreen = ({navigation}: any) => {
           <Ionicons name="chevron-forward-outline" size={28} color="#666" />
         </TouchableOpacity>
 
-        {/* ===== Payment + Sales Agent Cards ===== */}
+        {/* ===== Payment + Sales agent cards ===== */}
         <View style={styles.twoCards}>
           <View style={styles.bigCard}>
             <Ionicons
@@ -69,6 +69,7 @@ const AccountScreen = ({navigation}: any) => {
             </TouchableOpacity>
           </View>
 
+          {/* Sales Agent Card */}
           <View style={styles.bigCard}>
             <Ionicons
               name="person-outline"
@@ -79,12 +80,13 @@ const AccountScreen = ({navigation}: any) => {
             <Text style={styles.bigCardTitle}>Sales agent</Text>
             <Text style={styles.bigCardSub}>Organic Mumbai</Text>
 
+            {/* Call agent button at the bottom */}
             <TouchableOpacity style={{marginTop: 'auto'}}>
               <Text style={styles.bigOrangeLink}>📞 Call agent</Text>
             </TouchableOpacity>
           </View>
         </View>
-
+ 
         {/* ===== Story Banner ===== */}
         <View style={styles.storyBanner}>
           <Text style={styles.storyText}>
@@ -95,8 +97,11 @@ const AccountScreen = ({navigation}: any) => {
             <Text style={styles.followText}>Follow</Text>
           </TouchableOpacity>
         </View>
+      </ScrollView>
 
-        {/* ===== Do Not Disturb ===== */}
+      {/* ===== Fixed Bottom Section ===== */}
+      <View style={styles.bottomSection}>
+        {/* Do not disturb */}
         <View style={styles.largeListItem}>
           <View style={styles.listTextContainer}>
             <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
@@ -121,7 +126,7 @@ const AccountScreen = ({navigation}: any) => {
           />
         </View>
 
-        {/* ===== CARS24 Rewards ===== */}
+        {/* CARS24 rewards with rupee icon */}
         <TouchableOpacity style={styles.largeListItem}>
           <View style={styles.listTextContainer}>
             <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
@@ -141,11 +146,12 @@ const AccountScreen = ({navigation}: any) => {
     </View>
   );
 };
-
+ 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#f9f9f9'},
   scrollArea: {flex: 1},
 
+  /* Header */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -158,6 +164,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {fontSize: 20, fontWeight: '600', color: '#000'},
 
+  /* Top Banner */
   topBanner: {
     backgroundColor: '#EEE6FA',
     margin: 12,
@@ -169,6 +176,7 @@ const styles = StyleSheet.create({
   topBannerSub: {fontSize: 18, color: '#222', fontWeight: '600'},
   knowMore: {color: '#FF6600', fontSize: 16},
 
+  /* Profile Card */
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -183,6 +191,7 @@ const styles = StyleSheet.create({
   profileName: {fontSize: 18, fontWeight: '700', color: '#000'},
   profileDetails: {fontSize: 14, color: '#666', marginTop: 3},
 
+  /* Two Cards container */
   twoCards: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -235,6 +244,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
 
+  /* Story Banner */
   storyBanner: {
     backgroundColor: '#FFE0B2',
     marginHorizontal: 12,
@@ -259,6 +269,12 @@ const styles = StyleSheet.create({
   },
   followText: {color: '#fff', fontWeight: '700', fontSize: 16},
 
+  /* Bottom Section */
+  bottomSection: {
+    backgroundColor: '#fff',
+    borderTopWidth: 0.5,
+    borderTopColor: '#ddd',
+  },
   largeListItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -272,16 +288,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   largeListTitle: {fontSize: 18, fontWeight: '600', color: '#000'},
-
-  listTextContainer: {
-    flexDirection: 'column',
-  },
-  listSubAligned: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-    marginLeft: 28,
-  },
+  largeListSubTitle: {fontSize: 14, color: '#666', marginTop: 4},
 });
-
+ 
 export default AccountScreen;
+ 
+ 

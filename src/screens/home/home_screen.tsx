@@ -13,118 +13,69 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import useWebSocket from "../../Utilies/websocket";
-
-// Navigation Types
-type RootStackParamList = {
-  Login: undefined;
-  Home: undefined;
-  SignUp: undefined;
-  Bidding: {
-    car: { id: string; title: string; subtitle: string; info: string; time: string; imageSource: any };
-  };
-};
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
-// LiveCar type
-interface LiveCar {
-  bidCarId: string;
-  title: string;
-  subtitle: string;
-  info: string;
-  time: string;
-  imageUrl: string;
-  isScrap: boolean;
-}
-
+ 
 const HomeScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp>();
-  const { client, isConnected } = useWebSocket();
-
+  // State to manage the active tab: 'LIVE' or 'OCB'
   const [activeTab, setActiveTab] = useState<'LIVE' | 'OCB'>('LIVE');
-  const [liveCars, setLiveCars] = useState<LiveCar[]>([]);
-  const [ocbCars, setOcbCars] = useState<LiveCar[]>([]);
-
+ 
+  // Placeholder assets - Use distinct placeholder paths if you have multiple car photos!
+  const carImageSource1 = require('../../assets/images/car1.png'); // Renamed for clarity
+  const carImageSource2 = require('../../assets/images/car3.png'); // Renamed for clarity
   const bannerImageSource = require('../../assets/images/car2.png');
-
-  // Subscribe to live cars
-  useEffect(() => {
-    if (client && isConnected) {
-      const liveSubscription = client.subscribe("/topic/liveCars", (message: any) => {
-        const cars: LiveCar[] = JSON.parse(message.body);
-        setLiveCars(cars.slice(0, 3)); // top 3 live cars
-      });
-
-      const ocbSubscription = client.subscribe("/topic/ocbCars", (message: any) => {
-        const cars: LiveCar[] = JSON.parse(message.body);
-        setOcbCars(cars.slice(0, 3));
-      });
-
-      client.publish({ destination: "/app/liveCars", body: '{}' });
-      client.publish({ destination: "/app/ocbCars", body: '{}' });
-
-      return () => {
-        liveSubscription.unsubscribe();
-        ocbSubscription.unsubscribe();
-      };
-    }
-  }, [client, isConnected]);
-
-  const handleCarPress = (car: LiveCar) => {
-    navigation.navigate("Bidding", {
-      car: {
-        id: car.bidCarId,
-        title: car.title,
-        subtitle: car.subtitle,
-        info: car.info,
-        time: car.time,
-        imageSource: { uri: car.imageUrl },
-      },
-    });
-  };
-
-  const renderCarCard = (car: LiveCar) => (
-    <TouchableOpacity
-      key={car.bidCarId}
-      style={styles.card}
-      onPress={() => handleCarPress(car)}
-      activeOpacity={0.9}
-    >
-      <Image source={{ uri: car.imageUrl }} style={styles.carImage} />
+ 
+  // Function to render a single Car Card component
+  const renderCarCard = (carDetails: { title: string, subtitle: string, info: string, time: string, imageSource: any, isScrap: boolean }) => (
+    <View style={styles.card}>
+      <Image
+        // The style={styles.carImage} property correctly applies resizeMode: 'cover'
+        source={carDetails.imageSource}
+        style={styles.carImage}
+      />
+      {/* Heart Icon */}
       <TouchableOpacity style={styles.heartIcon}>
         <Ionicons name="heart-outline" size={24} color="#fff" />
       </TouchableOpacity>
-      {car.isScrap && (
+ 
+      {carDetails.isScrap && (
         <View style={styles.scrapBadge}>
           <Text style={styles.scrapText}>SCRAP CAR</Text>
         </View>
       )}
+ 
       <View style={styles.cardDetails}>
         <View style={styles.locationRow}>
           <MaterialCommunityIcons name="map-marker" size={14} color="#555" />
-          <Text style={styles.locationTextSmall}> Mumbai • MH-01</Text>
+          <Text style={styles.locationTextSmall}>
+            {car.city || "Mumbai"} • {car.rtoCode || "MH-01"}
+          </Text>
         </View>
         <View style={styles.carHeaderRow}>
-          <Text style={styles.carTitle}>{car.title}</Text>
+          <Text style={styles.carTitle}>{carDetails.title}</Text>
           <View style={styles.engineTag}>
-            <Text style={styles.engineText}>ENGINE 1.0</Text>
+            <Text style={styles.engineText}>ENGINE {car.engine || "1.0"}</Text>
             <Ionicons name="star" size={10} color="#d32f2f" style={{ marginLeft: 2 }} />
           </View>
         </View>
-        <Text style={styles.carSubtitle}>{car.subtitle}</Text>
-        <Text style={styles.carInfo}>{car.info}</Text>
+        <Text style={styles.carSubtitle}>{carDetails.subtitle}</Text>
+        <Text style={styles.carInfo}>
+          {carDetails.info}
+        </Text>
+ 
+        {/* PERFECTED Bid/Timer Section: Highest Bid on left, timer boxes on right */}
         <View style={styles.bidSection}>
           <View style={styles.bidLeft}>
             <Text style={styles.highestBid}>Highest Bid</Text>
             <Text style={styles.tapToBid}>🔥 Tap to Bid</Text>
           </View>
           <View style={styles.timerContainer}>
-            {car.time.split(':').map((value, index) => (
+            {carDetails.time.split(':').map((value, index) => (
               <React.Fragment key={index}>
                 <View style={styles.timerBox}>
                   <Text style={styles.highestBidValue}>{value}</Text>
                 </View>
-                {index < car.time.split(':').length - 1 && <Text style={styles.timerSeparator}>:</Text>}
+                {index < carDetails.time.split(':').length - 1 && (
+                  <Text style={styles.timerSeparator}>:</Text>
+                )}
               </React.Fragment>
             ))}
           </View>
@@ -132,7 +83,9 @@ const HomeScreen: React.FC = () => {
       </View>
     </TouchableOpacity>
   );
-
+ 
+ 
+  // Helper function to render the tabs with conditional styling
   const renderTab = (tabName: 'LIVE' | 'OCB', count: number) => {
     const isActive = activeTab === tabName;
     return (
@@ -147,7 +100,7 @@ const HomeScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.appContainer}>
-        {/* Top Bar */}
+        {/* Top Bar (Header) */}
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.location}>
             <MaterialCommunityIcons name="map-marker" size={16} color="#888" style={{ marginRight: 2 }} />
@@ -155,22 +108,23 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.locationText}>MH</Text>
             <Ionicons name="chevron-down-outline" size={16} color="#000" />
           </TouchableOpacity>
+ 
           <View style={styles.searchBar}>
             <Ionicons name="search-outline" size={20} color="#aaa" />
             <TextInput style={styles.searchInput} placeholder="Make, model, year, Appt. id" placeholderTextColor="#aaa" />
           </View>
+ 
           <TouchableOpacity style={styles.buyBasicButton}>
             <Text style={styles.buyBasicText}>Buy{"\n"}Basic</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.scrollViewContent}>
-          {/* Tabs */}
           <View style={styles.tabs}>
-            {renderTab('LIVE', liveCars.length)}
-            {renderTab('OCB', ocbCars.length)}
+            {renderTab('LIVE', 99)}
+            {renderTab('OCB', 443)}
           </View>
-
+ 
           {/* Banner */}
           <View style={styles.banner}>
             <View>
@@ -180,9 +134,13 @@ const HomeScreen: React.FC = () => {
                 <Text style={styles.exploreText}>Explore →</Text>
               </TouchableOpacity>
             </View>
-            <Image source={bannerImageSource} style={styles.bannerImage} />
+            {/* Placeholder for LOANS24 Image */}
+            <Image
+              source={bannerImageSource}
+              style={styles.bannerImage}
+            />
           </View>
-
+ 
           {/* Filter / Sort */}
           <View style={styles.filterSort}>
             <TouchableOpacity style={styles.filterButton}>
@@ -194,7 +152,7 @@ const HomeScreen: React.FC = () => {
               <Text style={styles.filterText}>Sort</Text>
             </TouchableOpacity>
           </View>
-
+ 
           {/* Tags */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsRow}>
             {["PA Recommended", "Service History", "BMW X1", "HONDA", "Maruti", "Ford"].map((tag, i) => (
@@ -203,19 +161,37 @@ const HomeScreen: React.FC = () => {
               </TouchableOpacity>
             ))}
           </ScrollView>
-
-          {/* Cars List */}
-          <Text style={styles.liveCarsHeader}>{activeTab === 'LIVE' ? 'Live Cars' : 'OCB Cars'}</Text>
-          {(activeTab === 'LIVE' ? liveCars : ocbCars).length > 0
-            ? (activeTab === 'LIVE' ? liveCars : ocbCars).map(renderCarCard)
-            : <Text style={{ padding: 15, color: '#555' }}>No cars available.</Text>
-          }
-
+ 
+          {/* Car Card - "Live cars" Header */}
+          <Text style={styles.liveCarsHeader}>Live cars</Text>
+ 
+          {/* --- CAR CARD 1 --- */}
+          {renderCarCard({
+            title: '2005 800',
+            subtitle: 'AC',
+            info: '71,076 km • 1st owner • Petrol',
+            time: '01:25:37',
+            imageSource: carImageSource1,
+            isScrap: true,
+          })}
+         
+          {/* --- CAR CARD 2 --- */}
+          {renderCarCard({
+            title: '2019 Honda City',
+            subtitle: 'VX MT',
+            info: '25,000 km • 2nd owner • Diesel',
+            time: '00:05:59',
+            imageSource: carImageSource2,
+            isScrap: false,
+          })}
+ 
+ 
+          {/* Add some padding for the fixed warning bar */}
           <View style={{ height: 100 }} />
         </ScrollView>
       </View>
-
-      {/* Fixed Warning Banner */}
+ 
+      {/* Warning Banner (Fixed at the bottom of the content) */}
       <View style={styles.warningFixedContainer}>
         <View style={styles.warningIconText}>
           <MaterialCommunityIcons name="wallet-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
@@ -230,10 +206,7 @@ const HomeScreen: React.FC = () => {
 };
 
 export default HomeScreen;
-
-// Use your existing styles (same as your previous code)
-
-
+ 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -529,19 +502,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },
-  bidLeft: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
   highestBid: {
     fontSize: 13,
     fontWeight: "600",
-  },
-  tapToBid: {
-    fontSize: 11,
-    color: '#ff6b35',
-    fontWeight: '600',
-    marginTop: 2,
   },
   timerContainer: {
     flexDirection: 'row',
@@ -588,4 +551,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
- 
