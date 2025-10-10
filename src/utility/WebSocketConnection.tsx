@@ -1,4 +1,4 @@
-// WebSocketConnection.tsx - SINGLE URL VERSION
+// // WebSocketConnection.tsx - SINGLE URL VERSION
 import React, {
   createContext,
   useContext,
@@ -7,7 +7,7 @@ import React, {
   useRef,
   ReactNode,
 } from 'react';
-import {Client, IMessage, StompSubscription} from '@stomp/stompjs';
+import {Client,IMessage, StompSubscription} from '@stomp/stompjs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define WebSocket context type
@@ -43,7 +43,7 @@ const WebSocketContext = createContext<WebSocketContextType | null>(null);
 
 // ✅ SINGLE API ENDPOINT
 const API_ENDPOINT =
-  'https://caryanamindia.prodchunca.in.net/BeadingCarController/all';
+  'https://caryanamindia.prodchunca.in.net/Aucbidding';
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
@@ -104,11 +104,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         'Content-Type': 'application/json',
         Accept: 'application/json',
       };
-
+console.log('🔐 Using token:', authTokenRef.current);
       if (authTokenRef.current) {
         headers['Authorization'] = `Bearer ${authTokenRef.current}`;
       }
-
+console.log('📋 Request headers:', headers);
       const response = await fetch(API_ENDPOINT, {
         method: 'GET',
         headers: headers,
@@ -116,46 +116,50 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       } as any);
 
       console.log(`📡 API Response status: ${response.status}`);
-
+console.log('📋 Response headers:', response);
       if (response.ok) {
-        const data = await response.json();
-        console.log(`✅ Successfully fetched data`);
-        console.log(
-          `🚗 Received ${Array.isArray(data) ? data.length : 0} cars`,
-        );
+        console.log (stompClientRef) 
+        setupSubscriptions()
+        // const data = await response.json();
 
-        if (Array.isArray(data) && data.length > 0) {
-          // Transform data to match expected format
-          const transformedData = data.map((car: any) => ({
-            id: car.id || car.carId || car.bidCarId || String(Math.random()),
-            imageUrl: car.imageUrl || car.image || car.carImage,
-            isScrap: car.isScrap || car.scrap || false,
-            city: car.city || car.location || 'Unknown',
-            rtoCode: car.rtoCode || car.rto || 'N/A',
-            make: car.make || car.brand || car.manufacturer || 'Car',
-            model: car.model || car.modelName || 'Model',
-            variant: car.variant || car.variantName || 'Variant',
-            engine: car.engine || car.engineCapacity || '1.0L',
-            kmsDriven: car.kmsDriven || car.kilometers || car.mileage || 0,
-            owner: car.owner || car.ownerType || '1st Owner',
-            fuelType: car.fuelType || car.fuel || 'Petrol',
-            remainingTime: car.remainingTime || car.timeLeft || '01:30:00',
-            currentBid:
-              car.currentBid || car.highestBid || car.startingBid || 0,
-            ...car,
-          }));
+        // console.log(`✅ Successfully fetched data`);
+        // console.log(
+        //   `🚗 Received ${Array.isArray(data) ? data.length : 0} cars`,
+        // );
 
-          setLiveCars(transformedData);
-          console.log('✅ Live cars updated');
-          console.log('📋 First car details:', {
-            id: transformedData[0]?.id,
-            make: transformedData[0]?.make,
-            model: transformedData[0]?.model,
-            currentBid: transformedData[0]?.currentBid,
-          });
-          console.log('📄 Full first car data:', transformedData[0]);
-          return true;
-        }
+        // if (Array.isArray(data) && data.length > 0) {
+        //   // Transform data to match expected format
+        //   const transformedData = data.map((car: any) => ({
+        //     id: car.id || car.carId || car.bidCarId || String(Math.random()),
+        //     imageUrl: car.imageUrl || car.image || car.carImage,
+        //     isScrap: car.isScrap || car.scrap || false,
+        //     city: car.city || car.location || 'Unknown',
+        //     rtoCode: car.rtoCode || car.rto || 'N/A',
+        //     make: car.make || car.brand || car.manufacturer || 'Car',
+        //     model: car.model || car.modelName || 'Model',
+        //     variant: car.variant || car.variantName || 'Variant',
+        //     engine: car.engine || car.engineCapacity || '1.0L',
+        //     kmsDriven: car.kmsDriven || car.kilometers || car.mileage || 0,
+        //     owner: car.owner || car.ownerType || '1st Owner',
+        //     fuelType: car.fuelType || car.fuel || 'Petrol',
+        //     remainingTime: car.remainingTime || car.timeLeft || '01:30:00',
+        //     currentBid:
+        //       car.currentBid || car.highestBid || car.startingBid || 0,
+        //     ...car,
+        //   }));
+
+        //   setLiveCars(transformedData);
+        //   console.log('✅ Live cars updated');
+        //   console.log('📋 First car details:', {
+        //     id: transformedData[0]?.id,
+        //     make: transformedData[0]?.make,
+        //     model: transformedData[0]?.model,
+        //     currentBid: transformedData[0]?.currentBid,
+        //   });
+        //   console.log('📄 Full first car data:', transformedData[0]);
+          
+        // }
+        return true;
       }
     } catch (error) {
       console.log(`❌ Failed to fetch from API:`, error);
@@ -226,14 +230,29 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     }
   };
 
-  const setupSubscriptions = (stompClient: Client) => {
+  const setupSubscriptions = (stompClient?: Client) => {
     try {
       console.log('📡 Setting up subscriptions...');
+      console.log(stompClient,subscriptions);
+      
+      const client = new Client({
+  brokerURL: 'https://caryanamindia.prodchunca.in.net/Aucbidding',
+  connectHeaders: {
+    Authorization: 'Bearer ' + authTokenRef.current,
+  },
+  debug: (str) => {
+    console.log(str);
+  },
+  reconnectDelay: 5000, // auto-reconnect
+});
 
-      if (!subscriptions.current['/topic/liveCars']) {
-        const liveCarsSubscription = stompClient.subscribe(
+      // if (stompClient&&!subscriptions.current['/topic/liveCars']) {
+      client.onConnect = (frame) => {
+        console.log('✅ STOMP connected:', frame);
+        const liveCarsSubscription = client.subscribe(
           '/topic/liveCars',
           (message: IMessage) => {
+            console.log('📩 Message received on /topic/liveCars',message);
             try {
               console.log('📨 Received live cars data through subscription');
               const carsData = JSON.parse(message.body);
@@ -289,23 +308,23 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         );
         subscriptions.current['/topic/liveCars'] = liveCarsSubscription;
         console.log('✅ Subscribed to /topic/liveCars');
-      }
+       }
 
-      if (!subscriptions.current['/topic/bids']) {
-        subscriptions.current['/topic/bids'] = stompClient.subscribe(
-          '/topic/bids',
-          (message: IMessage) => {
-            try {
-              const bidData = JSON.parse(message.body);
-              console.log('💰 Received bid update:', bidData);
-            } catch (error) {
-              console.error('❌ Error parsing bid:', error);
-            }
-          },
-          {id: 'bids-subscription'},
-        );
-        console.log('✅ Subscribed to /topic/bids');
-      }
+      // // if (stompClient&&!subscriptions.current['/topic/bids']) {
+      //   subscriptions.current['/topic/bids'] = stompClient.subscribe(
+      //     '/topic/bids',
+      //     (message: IMessage) => {
+      //       try {
+      //         const bidData = JSON.parse(message.body);
+      //         console.log('💰 Received bid update:', bidData);
+      //       } catch (error) {
+      //         console.error('❌ Error parsing bid:', error);
+      //       }
+      //     },
+      //     {id: 'bids-subscription'},
+      //   );
+      //   console.log('✅ Subscribed to /topic/bids');
+      // }
 
       console.log('🎉 All subscriptions set up successfully');
     } catch (error) {
