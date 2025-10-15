@@ -1,4 +1,4 @@
-// // WebSocketConnection.tsx - SINGLE URL VERSION
+// WebSocketConnection.tsx
 import React, {
   createContext,
   useContext,
@@ -7,10 +7,9 @@ import React, {
   useRef,
   ReactNode,
 } from 'react';
-import {Client,IMessage, StompSubscription} from '@stomp/stompjs';
+import {Client, IMessage, StompSubscription} from '@stomp/stompjs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Define WebSocket context type
 interface WebSocketContextType {
   isConnected: boolean;
   placeBid: (userData: BidUserData) => Promise<any>;
@@ -41,9 +40,9 @@ interface BidUserData {
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
 
-// ✅ SINGLE API ENDPOINT
-const API_ENDPOINT =
-  'https://caryanamindia.prodchunca.in.net/Aucbidding';
+const API_ENDPOINT_WS = 'wss://caryanamindia.prodchunca.in.net/Aucbidding';
+const API_ENDPOINT_HTTP =
+  'https://caryanamindia.prodchunca.in.net/biddingHTTP/liveCars';
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
@@ -53,23 +52,25 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<string>('disconnected');
-  const stompClientRef = useRef<Client | null>(null);
   const [client, setClient] = useState<Client | null>(null);
+
   const [topThreeBidsAmount, setTopThreeBidsAmount] = useState<any[]>([]);
   const [topThreeBidsAmountArray, setTopThreeBidsAmountArray] = useState<any[]>(
     [],
   );
   const [liveCars, setLiveCars] = useState<any[]>([]);
+
   const subscriptions = useRef<Record<string, StompSubscription>>({});
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
   const isConnecting = useRef(false);
   const authTokenRef = useRef<string | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stompClientRef = useRef<Client | null>(null);
 
   const TOKEN_KEY = 'auth_token';
-  const USER_ID_KEY = 'user_id';
 
+  // --- Load Stored Token ---
   useEffect(() => {
     loadStoredToken();
   }, []);
@@ -93,117 +94,88 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     }
   };
 
-  // ✅ FETCH LIVE CARS VIA HTTP
+  // --- Fetch Live Cars via HTTP API ---
   const fetchLiveCarsViaHTTP = async () => {
     console.log('🌐 Fetching live cars from API...');
-
     try {
-      console.log(`🔗 Calling API: ${API_ENDPOINT}`);
-
-      const headers: any = {
+      const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       };
-console.log('🔐 Using token:', authTokenRef.current);
-      if (authTokenRef.current) {
+      if (authTokenRef.current)
         headers['Authorization'] = `Bearer ${authTokenRef.current}`;
+
+      const response = await fetch(API_ENDPOINT_HTTP, {method: 'GET', headers});
+      console.log(`📡 Live Cars API Response: ${response.status}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
       }
-console.log('📋 Request headers:', headers);
-      const response = await fetch(API_ENDPOINT, {
-        method: 'GET',
-        headers: headers,
-        timeout: 10000,
-      } as any);
 
-      console.log(`📡 API Response status: ${response.status}`);
-console.log('📋 Response headers:', response);
-      if (response.ok) {
-        console.log (stompClientRef) 
-        setupSubscriptions()
-        // const data = await response.json();
-
-        // console.log(`✅ Successfully fetched data`);
-        // console.log(
-        //   `🚗 Received ${Array.isArray(data) ? data.length : 0} cars`,
-        // );
-
-        // if (Array.isArray(data) && data.length > 0) {
-        //   // Transform data to match expected format
-        //   const transformedData = data.map((car: any) => ({
-        //     id: car.id || car.carId || car.bidCarId || String(Math.random()),
-        //     imageUrl: car.imageUrl || car.image || car.carImage,
-        //     isScrap: car.isScrap || car.scrap || false,
-        //     city: car.city || car.location || 'Unknown',
-        //     rtoCode: car.rtoCode || car.rto || 'N/A',
-        //     make: car.make || car.brand || car.manufacturer || 'Car',
-        //     model: car.model || car.modelName || 'Model',
-        //     variant: car.variant || car.variantName || 'Variant',
-        //     engine: car.engine || car.engineCapacity || '1.0L',
-        //     kmsDriven: car.kmsDriven || car.kilometers || car.mileage || 0,
-        //     owner: car.owner || car.ownerType || '1st Owner',
-        //     fuelType: car.fuelType || car.fuel || 'Petrol',
-        //     remainingTime: car.remainingTime || car.timeLeft || '01:30:00',
-        //     currentBid:
-        //       car.currentBid || car.highestBid || car.startingBid || 0,
-        //     ...car,
-        //   }));
-
-        //   setLiveCars(transformedData);
-        //   console.log('✅ Live cars updated');
-        //   console.log('📋 First car details:', {
-        //     id: transformedData[0]?.id,
-        //     make: transformedData[0]?.make,
-        //     model: transformedData[0]?.model,
-        //     currentBid: transformedData[0]?.currentBid,
-        //   });
-        //   console.log('📄 Full first car data:', transformedData[0]);
-          
-        // }
-        return true;
+      const carsData = await response.json();
+      if (Array.isArray(carsData)) {
+        const transformedData = carsData.map((car: any) => ({
+          id: car.id || car.carId || car.bidCarId || String(Math.random()),
+          imageUrl: car.imageUrl || car.image || car.carImage,
+          isScrap: car.isScrap || car.scrap || false,
+          city: car.city || car.location || 'Unknown',
+          rtoCode: car.rtoCode || car.rto || 'N/A',
+          make: car.make || car.brand || car.manufacturer || 'Car',
+          model: car.model || car.modelName || 'Model',
+          variant: car.variant || car.variantName || 'Variant',
+          engine: car.engine || car.engineCapacity || '1.0L',
+          kmsDriven: car.kmsDriven || car.kilometers || car.mileage || 0,
+          owner: car.owner || car.ownerType || '1st Owner',
+          fuelType: car.fuelType || car.fuel || 'Petrol',
+          remainingTime: car.remainingTime || car.timeLeft || '01:30:00',
+          currentBid: car.currentBid || car.highestBid || car.startingBid || 0,
+          ...car,
+        }));
+        setLiveCars(transformedData);
+        console.log(`🚗 Live cars fetched: ${transformedData.length}`);
+      } else {
+        console.warn('⚠️ Unexpected data format from live cars API');
       }
+
+      return true;
     } catch (error) {
-      console.log(`❌ Failed to fetch from API:`, error);
+      console.error('❌ Failed to fetch live cars:', error);
+      return false;
     }
-
-    console.warn('⚠️ API request failed');
-    return false;
   };
 
+  // --- Connect WebSocket ---
   const connectWebSocket = async (authToken?: string) => {
     clearConnectionTimeout();
-
     if (authToken) {
       authTokenRef.current = authToken;
       await AsyncStorage.setItem(TOKEN_KEY, authToken);
-      console.log('✅ Token stored for connection');
+      console.log('✅ Token stored for WebSocket connection');
     }
-
     if (isConnecting.current) {
       console.log('🔄 Connection already in progress...');
       return;
     }
 
-    console.log('🚀 STEP 2: Connecting to API...');
-    console.log('🔐 Token available:', !!authTokenRef.current);
-
     setConnectionStatus('connecting');
     setConnectionError(null);
     isConnecting.current = true;
 
+    // Step 1: Fetch live cars via API first
     const success = await fetchLiveCarsViaHTTP();
 
+    // Step 2: Setup WebSocket for real-time updates if API call works
     if (success) {
+      setupWebSocketClient();
       setIsConnected(true);
       setIsAuthenticated(true);
       setConnectionStatus('connected');
-      setConnectionError(null);
       reconnectAttempts.current = 0;
       isConnecting.current = false;
-      clearConnectionTimeout();
-      console.log('✅ Successfully connected and fetched live cars');
+      console.log('✅ Connected via API & WebSocket');
     } else {
       setConnectionStatus('error');
-      setConnectionError('Unable to connect to API');
+      setConnectionError('Unable to fetch live cars');
       isConnecting.current = false;
       handleReconnect();
     }
@@ -215,12 +187,8 @@ console.log('📋 Response headers:', response);
       console.log(
         `🔄 Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`,
       );
-
       setTimeout(() => {
-        if (!isConnecting.current && authTokenRef.current) {
-          console.log('🔄 Attempting to reconnect...');
-          connectWebSocket();
-        }
+        if (!isConnecting.current && authTokenRef.current) connectWebSocket();
       }, 3000);
     } else {
       console.error('🛑 Max reconnection attempts reached');
@@ -230,166 +198,66 @@ console.log('📋 Response headers:', response);
     }
   };
 
-  const setupSubscriptions = (stompClient?: Client) => {
-    try {
-      console.log('📡 Setting up subscriptions...');
-      console.log(stompClient,subscriptions);
-      
-      const client = new Client({
-  brokerURL: 'https://caryanamindia.prodchunca.in.net/Aucbidding',
-  connectHeaders: {
-    Authorization: 'Bearer ' + authTokenRef.current,
-  },
-  debug: (str) => {
-    console.log(str);
-  },
-  reconnectDelay: 5000, // auto-reconnect
-});
+  // --- Setup WebSocket Client ---
+  const setupWebSocketClient = () => {
+    if (stompClientRef.current && stompClientRef.current.connected) return;
 
-      // if (stompClient&&!subscriptions.current['/topic/liveCars']) {
-      client.onConnect = (frame) => {
-        console.log('✅ STOMP connected:', frame);
-        const liveCarsSubscription = client.subscribe(
-          '/topic/liveCars',
-          (message: IMessage) => {
-            console.log('📩 Message received on /topic/liveCars',message);
-            try {
-              console.log('📨 Received live cars data through subscription');
-              const carsData = JSON.parse(message.body);
+    const client = new Client({
+      brokerURL: API_ENDPOINT_WS,
+      connectHeaders: {Authorization: `Bearer ${authTokenRef.current}`},
+      debug: msg => console.log('[STOMP DEBUG]', msg),
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+    });
+
+    client.onConnect = () => {
+      console.log('✅ STOMP Connected');
+      setIsConnected(true);
+
+      const liveCarsSub = client.subscribe(
+        '/topic/liveCars',
+        (message: IMessage) => {
+          try {
+            const carsData = JSON.parse(message.body);
+            if (Array.isArray(carsData)) {
+              const transformedData = carsData.map((car: any) => ({
+                id:
+                  car.id || car.carId || car.bidCarId || String(Math.random()),
+                imageUrl: car.imageUrl || car.image || car.carImage,
+                city: car.city || 'Unknown',
+                make: car.make || 'Car',
+                model: car.model || 'Model',
+                currentBid: car.currentBid || 0,
+                ...car,
+              }));
+              setLiveCars(transformedData);
               console.log(
-                `🚗 Received ${
-                  Array.isArray(carsData) ? carsData.length : 0
-                } live cars`,
+                `🚗 Updated via WebSocket: ${transformedData.length} cars`,
               );
-
-              if (Array.isArray(carsData) && carsData.length > 0) {
-                const transformedData = carsData.map((car: any) => ({
-                  id:
-                    car.id ||
-                    car.carId ||
-                    car.bidCarId ||
-                    String(Math.random()),
-                  imageUrl: car.imageUrl || car.image || car.carImage,
-                  isScrap: car.isScrap || car.scrap || false,
-                  city: car.city || car.location || 'Unknown',
-                  rtoCode: car.rtoCode || car.rto || 'N/A',
-                  make: car.make || car.brand || car.manufacturer || 'Car',
-                  model: car.model || car.modelName || 'Model',
-                  variant: car.variant || car.variantName || 'Variant',
-                  engine: car.engine || car.engineCapacity || '1.0L',
-                  kmsDriven:
-                    car.kmsDriven || car.kilometers || car.mileage || 0,
-                  owner: car.owner || car.ownerType || '1st Owner',
-                  fuelType: car.fuelType || car.fuel || 'Petrol',
-                  remainingTime:
-                    car.remainingTime || car.timeLeft || '01:30:00',
-                  currentBid:
-                    car.currentBid || car.highestBid || car.startingBid || 0,
-                  ...car,
-                }));
-
-                setLiveCars(transformedData);
-                console.log('✅ Live cars updated in UI state');
-                console.log('📋 First car details:', {
-                  id: transformedData[0]?.id,
-                  make: transformedData[0]?.make,
-                  model: transformedData[0]?.model,
-                  currentBid: transformedData[0]?.currentBid,
-                });
-              } else {
-                console.warn('⚠️ Received empty or invalid cars array');
-                setLiveCars([]);
-              }
-            } catch (error) {
-              console.error('❌ Error parsing live cars data:', error);
             }
-          },
-          {id: 'liveCars-subscription'},
-        );
-        subscriptions.current['/topic/liveCars'] = liveCarsSubscription;
-        console.log('✅ Subscribed to /topic/liveCars');
-       }
+          } catch (err) {
+            console.error('❌ Error parsing /topic/liveCars message:', err);
+          }
+        },
+      );
 
-      // // if (stompClient&&!subscriptions.current['/topic/bids']) {
-      //   subscriptions.current['/topic/bids'] = stompClient.subscribe(
-      //     '/topic/bids',
-      //     (message: IMessage) => {
-      //       try {
-      //         const bidData = JSON.parse(message.body);
-      //         console.log('💰 Received bid update:', bidData);
-      //       } catch (error) {
-      //         console.error('❌ Error parsing bid:', error);
-      //       }
-      //     },
-      //     {id: 'bids-subscription'},
-      //   );
-      //   console.log('✅ Subscribed to /topic/bids');
-      // }
+      subscriptions.current['/topic/liveCars'] = liveCarsSub;
+    };
 
-      console.log('🎉 All subscriptions set up successfully');
-    } catch (error) {
-      console.error('❌ Error setting up subscriptions:', error);
-    }
+    client.onWebSocketClose = () => {
+      console.warn('⚠️ WebSocket closed');
+      setConnectionStatus('disconnected');
+      handleReconnect();
+    };
+
+    client.activate();
+    stompClientRef.current = client;
+    setClient(client);
   };
 
   const getLiveCars = () => {
-    console.log('📡 Requesting live cars...');
     fetchLiveCarsViaHTTP();
-  };
-
-  const getTopThreeBids = (bidCarId: string) => {
-    if (stompClientRef.current && stompClientRef.current.connected) {
-      console.log(`📡 Requesting top three bids for car: ${bidCarId}`);
-      try {
-        stompClientRef.current.publish({
-          destination: '/app/topThreeBids',
-          body: JSON.stringify({bidCarId}),
-        });
-      } catch (error) {
-        console.error('❌ Error getting top bids:', error);
-      }
-    } else {
-      console.warn('⚠️ Cannot get top bids: Not connected');
-    }
-  };
-
-  const refreshTopThreeBids = (bidCarId: string): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      if (
-        bidCarId &&
-        stompClientRef.current &&
-        stompClientRef.current.connected
-      ) {
-        try {
-          stompClientRef.current.publish({
-            destination: '/app/topBids',
-            body: JSON.stringify({bidCarId}),
-          });
-
-          if (!subscriptions.current[`/topic/topBids_${bidCarId}`]) {
-            subscriptions.current[`/topic/topBids_${bidCarId}`] =
-              stompClientRef.current.subscribe(
-                `/topic/topBids/${bidCarId}`,
-                (message: IMessage) => {
-                  try {
-                    const topBid = JSON.parse(message.body);
-                    setTopThreeBidsAmountArray(topBid);
-                    resolve(topBid);
-                  } catch (error) {
-                    console.error('❌ Error parsing top bid:', error);
-                    reject(error);
-                  }
-                },
-              );
-          }
-        } catch (error) {
-          console.error('❌ Error refreshing top bids:', error);
-          reject(error);
-        }
-      } else {
-        reject('Not authenticated or client not initialized');
-      }
-    });
   };
 
   const placeBid = (userData: BidUserData): Promise<any> => {
@@ -397,12 +265,12 @@ console.log('📋 Response headers:', response);
       placedBidId: null,
       userId: userData.userId,
       bidCarId: userData.bidCarId,
-      dateTime: new Date().toISOString(),
       amount: userData.amount,
+      dateTime: new Date().toISOString(),
     };
 
     return new Promise((resolve, reject) => {
-      if (stompClientRef.current && stompClientRef.current.connected) {
+      if (stompClientRef.current?.connected) {
         try {
           stompClientRef.current.publish({
             destination: '/app/placeBid',
@@ -410,38 +278,23 @@ console.log('📋 Response headers:', response);
           });
           resolve({status: 'success', message: 'Bid placed successfully'});
         } catch (error) {
-          console.error('❌ Error placing bid:', error);
+          console.error('Error placing bid:', error);
           reject(error);
         }
-      } else {
-        reject('Not authenticated or Stomp client is not initialized.');
-      }
+      } else reject('STOMP client not connected.');
     });
   };
 
   const disconnectWebSocket = () => {
-    console.log('🛑 Disconnecting...');
     setConnectionStatus('disconnected');
     isConnecting.current = false;
     clearConnectionTimeout();
 
-    if (stompClientRef.current) {
-      try {
-        Object.keys(subscriptions.current).forEach(key => {
-          try {
-            subscriptions.current[key].unsubscribe();
-          } catch (error) {
-            console.error(`❌ Error unsubscribing from ${key}:`, error);
-          }
-        });
-        subscriptions.current = {};
+    Object.values(subscriptions.current).forEach(sub => sub.unsubscribe());
+    subscriptions.current = {};
 
-        stompClientRef.current.deactivate();
-        stompClientRef.current = null;
-      } catch (error) {
-        console.error('❌ Error during disconnect:', error);
-      }
-    }
+    stompClientRef.current?.deactivate();
+    stompClientRef.current = null;
 
     setIsConnected(false);
     setIsAuthenticated(false);
@@ -449,24 +302,17 @@ console.log('📋 Response headers:', response);
     setLiveCars([]);
     setTopThreeBidsAmount([]);
     setTopThreeBidsAmountArray([]);
-    reconnectAttempts.current = 0;
   };
-
-  useEffect(() => {
-    return () => {
-      clearConnectionTimeout();
-    };
-  }, []);
 
   const contextValue: WebSocketContextType = {
     isConnected,
     placeBid,
-    getTopThreeBids,
+    getTopThreeBids: () => {},
     topThreeBidsAmount,
     topThreeBidsAmountArray,
     getLiveCars,
     liveCars,
-    refreshTopThreeBids,
+    refreshTopThreeBids: async () => [],
     client,
     subscriptions,
     connectWebSocket,
@@ -485,8 +331,7 @@ console.log('📋 Response headers:', response);
 
 export const useWebSocket = (): WebSocketContextType => {
   const context = useContext(WebSocketContext);
-  if (!context) {
+  if (!context)
     throw new Error('useWebSocket must be used within a WebSocketProvider');
-  }
   return context;
 };

@@ -42,8 +42,8 @@ type LoginScreenNavigationProp = StackNavigationProp<
 >;
 
 const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('asif.attar@caryanam.in');
+  const [password, setPassword] = useState('Pass@123');
   const [loading, setLoading] = useState(false);
 
   const navigation = useNavigation<LoginScreenNavigationProp>();
@@ -241,28 +241,6 @@ const Login = () => {
             <Text style={styles.loginButtonText}>Login</Text>
           )}
         </TouchableOpacity>
-
-        {/* Connection Status */}
-        <View style={styles.connectionStatus}>
-          <View
-            style={[
-              styles.statusDot,
-              {
-                backgroundColor:
-                  connectionStatus === 'connected'
-                    ? '#4CAF50'
-                    : connectionStatus === 'connecting'
-                    ? '#FF9800'
-                    : '#F44336',
-              },
-            ]}
-          />
-          <Text style={styles.statusText}>
-            {connectionStatus === 'connected' && '✅ WebSocket Connected'}
-            {connectionStatus === 'connecting' && '🔄 Connecting...'}
-            {connectionStatus === 'disconnected' && '❌ WebSocket Disconnected'}
-          </Text>
-        </View>
       </View>
     </View>
   );
