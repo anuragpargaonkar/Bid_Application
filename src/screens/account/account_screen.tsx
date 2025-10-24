@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,61 @@ import {
   Switch,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const TOKEN_KEY = 'auth_token';
+const USER_ID_KEY = 'user_id';
 
 const AccountScreen = ({navigation}: any) => {
   const [doNotDisturb, setDoNotDisturb] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = await AsyncStorage.getItem(TOKEN_KEY);
+        const id = await AsyncStorage.getItem(USER_ID_KEY);
+        setUserId(id);
+
+        if (token) {
+          const userInfo = parseJwt(token);
+          // Adjust keys based on your token payload
+          setUserName(userInfo?.username || userInfo?.name || 'Unknown User');
+          setUserPhone(userInfo?.phone || userInfo?.email || 'Not Available');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching user info:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Parse JWT (same logic as in login)
+  const parseJwt = (token: string) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join(''),
+      );
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      console.error('JWT parse error:', e);
+      return null;
+    }
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={{paddingBottom: 30}}>
-
         {/* ===== Header ===== */}
         <View style={styles.header}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -45,9 +90,15 @@ const AccountScreen = ({navigation}: any) => {
         <TouchableOpacity style={styles.profileCard}>
           <Ionicons name="person-circle-outline" size={54} color="#6A6A6A" />
           <View style={styles.profileText}>
-            <Text style={styles.profileName}>A3 MOTORS</Text>
-            <Text style={styles.profileDetails}>7755994123</Text>
-            <Text style={styles.profileDetails}>ID: 117103</Text>
+            <Text style={styles.profileName}>
+              {userName || 'Loading...'}
+            </Text>
+            <Text style={styles.profileDetails}>
+              {userPhone || 'Fetching contact...'}
+            </Text>
+            <Text style={styles.profileDetails}>
+              ID: {userId || 'Fetching...'}
+            </Text>
           </View>
           <Ionicons name="chevron-forward-outline" size={28} color="#666" />
         </TouchableOpacity>
@@ -146,7 +197,6 @@ const AccountScreen = ({navigation}: any) => {
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#f9f9f9'},
   scrollArea: {flex: 1},
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -158,7 +208,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ddd',
   },
   headerTitle: {fontSize: 20, fontWeight: '600', color: '#000'},
-
   topBanner: {
     backgroundColor: '#EEE6FA',
     margin: 12,
@@ -169,7 +218,6 @@ const styles = StyleSheet.create({
   topBannerText: {fontSize: 18, color: '#444', marginBottom: 6},
   topBannerSub: {fontSize: 18, color: '#222', fontWeight: '600'},
   knowMore: {color: '#FF6600', fontSize: 16},
-
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -183,7 +231,6 @@ const styles = StyleSheet.create({
   profileText: {flex: 1, marginLeft: 12},
   profileName: {fontSize: 18, fontWeight: '700', color: '#000'},
   profileDetails: {fontSize: 14, color: '#666', marginTop: 3},
-
   twoCards: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -235,7 +282,6 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     alignSelf: 'flex-start',
   },
-
   storyBanner: {
     backgroundColor: '#FFE0B2',
     marginHorizontal: 12,
@@ -259,7 +305,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
   },
   followText: {color: '#fff', fontWeight: '700', fontSize: 16},
-
   largeListItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -273,10 +318,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   largeListTitle: {fontSize: 18, fontWeight: '600', color: '#000'},
-
-  listTextContainer: {
-    flexDirection: 'column',
-  },
+  listTextContainer: {flexDirection: 'column'},
   listSubAligned: {
     fontSize: 14,
     color: '#666',
@@ -286,4 +328,3 @@ const styles = StyleSheet.create({
 });
 
 export default AccountScreen;
- 

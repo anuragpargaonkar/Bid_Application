@@ -25,6 +25,7 @@ const TOKEN_KEY = 'auth_token';
 const USER_ID_KEY = 'user_id';
 
 // Define Root Stack Param List
+
 type RootStackParamList = {
   Login: undefined;
   Home: {
@@ -42,14 +43,14 @@ type LoginScreenNavigationProp = StackNavigationProp<
 >;
 
 const Login = () => {
-  const [username, setUsername] = useState('asif.attar@caryanam.in');
-  const [password, setPassword] = useState('Pass@123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const {connectWebSocket, isConnected, connectionStatus} = useWebSocket();
 
   // Store authentication data
+
   const storeAuthData = async (token: string, userId: string) => {
     try {
       await AsyncStorage.setItem(TOKEN_KEY, token);
@@ -61,6 +62,7 @@ const Login = () => {
   };
 
   // Parse JWT token to extract user info
+
   const parseJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
@@ -73,7 +75,6 @@ const Login = () => {
           })
           .join(''),
       );
-
       return JSON.parse(jsonPayload);
     } catch (error) {
       console.error('❌ Error parsing JWT token:', error);
@@ -90,7 +91,6 @@ const Login = () => {
     try {
       setLoading(true);
       console.log('🔐 STEP 1: Attempting login...');
-
       const response = await fetch(
         'https://caryanamindia.prodchunca.in.net/jwt/login',
         {
@@ -99,6 +99,7 @@ const Login = () => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
+
           body: JSON.stringify({
             username: username.trim(),
             password: password.trim(),
@@ -109,22 +110,26 @@ const Login = () => {
       console.log('📡 Login response status:', response.status);
 
       // Get response as text first to handle both JSON and plain token responses
+
       const responseText = await response.text();
       console.log('📄 Login response text:', responseText);
-
       let token: string | null = null;
 
       // Try to parse as JSON first
+
       try {
         const data = JSON.parse(responseText);
+
         if (data.token) {
           token = data.token;
         } else if (typeof data === 'string' && data.length > 100) {
           // If it's a string that looks like a JWT token
+
           token = data;
         }
       } catch (jsonError) {
         // If JSON parsing fails, check if it's a plain token
+
         if (
           responseText &&
           responseText.length > 100 &&
@@ -133,26 +138,27 @@ const Login = () => {
           token = responseText;
         }
       }
-
       if (response.ok && token) {
         console.log('✅ Login successful, token received');
 
         // Parse JWT token to get user info
+
         const decodedToken = parseJwt(token);
         console.log('🔓 Decoded token:', decodedToken);
-
         const userId = decodedToken?.userId || decodedToken?.sub || username;
 
         // STEP 1: Store JWT token and user data
-        await storeAuthData(token, userId);
 
+        await storeAuthData(token, userId);
         Alert.alert('Success', 'Login Successful! Connecting to live bids...');
 
         // STEP 2: Connect WebSocket with authentication token
+
         console.log('🔗 STEP 2: Connecting WebSocket with token...');
         connectWebSocket(token);
 
         // Navigate to Home screen with properly typed parameters
+
         setTimeout(() => {
           navigation.navigate('Home', {
             token: token,
@@ -162,8 +168,8 @@ const Login = () => {
         }, 1500);
       } else {
         // Handle different error response formats
-        let errorMessage = 'Invalid credentials';
 
+        let errorMessage = 'Invalid credentials';
         try {
           const errorData = JSON.parse(responseText);
           errorMessage = errorData.message || errorData.error || errorMessage;
@@ -190,7 +196,6 @@ const Login = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#4A5B80" />
-
       <ImageBackground style={styles.background} resizeMode="cover">
         <LinearGradient
           colors={['rgba(142,158,171,0.7)', 'rgba(74,91,128,0.7)']}
@@ -200,7 +205,6 @@ const Login = () => {
 
       <View style={styles.content}>
         <Text style={styles.title}>Login</Text>
-
         <Text style={styles.label}>Username/Email</Text>
         <TextInput
           placeholder="Enter username or email"

@@ -33,9 +33,9 @@ android {
         release {
             // TODO: Replace these with your actual release keystore details
             storeFile file('my-release-key.keystore')
-            storePassword 'android'
+            storePassword 'Pass@123'
             keyAlias 'my-key-alias'
-            keyPassword 'android'
+            keyPassword 'Pass@123'
         }
     }
 

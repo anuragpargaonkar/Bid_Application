@@ -1,5 +1,4 @@
-// HomeScreen.tsx - WITH AUCTION TIMER & AUTO-REMOVE + ENHANCED IMAGE FETCH
-
+// HomeScreen.tsx - WITH AUCTION TIMER & AUTO-REMOVE + FIXED DATETIME FORMAT
 import React, {useState, useEffect, useRef, useCallback, useMemo} from 'react';
 import {
   View,
@@ -114,6 +113,40 @@ const HomeScreen: React.FC = () => {
     connectionError,
     connectionStatus,
   } = useWebSocket();
+
+  // ✅ FIXED: GET DATETIME IN CORRECT FORMAT (YYYY-MM-DDTHH:MM:SS)
+  const getCurrentDateTimeForAPI = useCallback((): string => {
+    const now = new Date();
+
+    // Get year, month, day
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    // Get hours, minutes, seconds (NO milliseconds)
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    // Format: YYYY-MM-DDTHH:MM:SS (exactly as API expects)
+    const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+
+    console.log('📅 Generated DateTime for API:', dateTimeString);
+    return dateTimeString;
+  }, []);
+
+  // ✅ GET SYSTEM TIMEZONE OFFSET (kept for potential future use)
+  const getTimezoneOffset = useCallback((): string => {
+    const now = new Date();
+    const offset = -now.getTimezoneOffset();
+    const hours = Math.floor(Math.abs(offset) / 60);
+    const minutes = Math.abs(offset) % 60;
+    const sign = offset >= 0 ? '+' : '-';
+    return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+      2,
+      '0',
+    )}`;
+  }, []);
 
   // ✅ PARSE DATETIME TO TIMESTAMP
   const parseDateTime = useCallback((dateTime: any): number | null => {
@@ -352,7 +385,7 @@ const HomeScreen: React.FC = () => {
     bidCarId: string,
   ): Promise<LivePriceData | null> => {
     try {
-      const livePriceUrl = `http://caryanamindia.prodchunca.in.net/Bid/getliveValue?bidCarId=${bidCarId}`;
+      const livePriceUrl = `https://caryanamindia.prodchunca.in.net/Bid/getliveValue?bidCarId=${bidCarId}`;
       const response = await fetch(livePriceUrl);
       const data = await response.json();
       const price = data?.object?.price ?? 0;
@@ -396,7 +429,7 @@ const HomeScreen: React.FC = () => {
       console.log('🔍 Starting fetch for:', {beadingCarId, bidCarId});
 
       // 1️⃣ Fetch image using beadingCarId
-      const imageUrl = `http://caryanamindia.prodchunca.in.net/uploadFileBidCar/getByBidCarID?beadingCarId=${beadingCarId}`;
+      const imageUrl = `https://caryanamindia.prodchunca.in.net/uploadFileBidCar/getByBidCarID?beadingCarId=${beadingCarId}`;
       console.log('📡 Fetching image from:', imageUrl);
 
       const imageResponse = await fetch(imageUrl);
@@ -622,7 +655,12 @@ const HomeScreen: React.FC = () => {
     setBiddingStates(prev => ({...prev, [selectedCar.bidCarId]: true}));
 
     try {
-      const currentDateTime = new Date().toISOString();
+      // ✅ Get current datetime in API format
+      const currentDateTime = getCurrentDateTimeForAPI();
+
+      // ✅ TRY MULTIPLE REQUEST FORMATS TO DEBUG
+      
+      // Format 1: Original format with bidCarId in URL
       const requestBody = {
         userId: Number(userId),
         bidCarId: Number(selectedCar.bidCarId),
@@ -631,26 +669,31 @@ const HomeScreen: React.FC = () => {
       };
 
       console.log('📤 Request body:', requestBody);
-      console.log(
-        '📤 Request URL:',
-        `https://caryanamindia.prodchunca.in.net/Bid/placeBid?bidCarId=${selectedCar.bidCarId}`,
-      );
-      console.log('📤 Headers:', {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token?.substring(0, 20) + '...',
-      });
+      console.log('📤 DateTime format:', currentDateTime);
+      console.log('📤 userId type:', typeof Number(userId));
+      console.log('📤 bidCarId type:', typeof Number(selectedCar.bidCarId));
+      console.log('📤 amount type:', typeof bidValue);
+      
+      // ✅ Check if token is valid
+      if (!token || token.trim() === '') {
+        throw new Error('Invalid authentication token');
+      }
 
       const bidUrl = `https://caryanamindia.prodchunca.in.net/Bid/placeBid?bidCarId=${selectedCar.bidCarId}`;
+      console.log('📤 Full Request URL:', bidUrl);
+
       const response = await fetch(bidUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
 
       console.log('📥 Response status:', response.status);
+      console.log('📥 Response ok:', response.ok);
       console.log(
         '📥 Response headers:',
         JSON.stringify([...response.headers.entries()]),
@@ -686,42 +729,69 @@ const HomeScreen: React.FC = () => {
         );
       } else {
         let errorMessage = '';
+        let debugInfo = '';
 
         if (response.status === 500) {
-          errorMessage =
-            data?.message ||
-            data?.error ||
-            text ||
-            'Server error occurred. Please try again.';
-
+          // ✅ Enhanced 500 error handling with possible causes
           if (!text || text.trim() === '') {
-            errorMessage =
-              'Server returned no error details. Possible causes:\n• Session expired\n• Invalid bid amount\n• Car no longer available\n\nPlease refresh and try again.';
+            errorMessage = 'Server Error (500)';
+            debugInfo = 
+              'Possible causes:\n\n' +
+              '1. Token expired - Try logging out and back in\n' +
+              '2. Auction ended - Car may no longer be available\n' +
+              '3. Insufficient balance - Check your account\n' +
+              '4. Server issue - Try again in a few moments\n' +
+              '5. Bid increment issue - Try a higher amount\n\n' +
+              `Details:\n` +
+              `• Bid Amount: ₹${bidValue.toLocaleString()}\n` +
+              `• Current Price: ₹${currentPrice.toLocaleString()}\n` +
+              `• Car ID: ${selectedCar.bidCarId}\n` +
+              `• Time: ${currentDateTime}`;
+          } else {
+            errorMessage = data?.message || data?.error || text || 'Server error';
+            debugInfo = 'Server returned an error. Please try again or contact support.';
           }
-        } else {
+        } else if (response.status === 400) {
           errorMessage =
+            data?.detail ||
             data?.message ||
             data?.error ||
-            `Server returned ${response.status}`;
+            'Invalid request format';
+          debugInfo = 'The request was not accepted by the server. Please check all values.';
+        } else if (response.status === 401) {
+          errorMessage = 'Authentication failed';
+          debugInfo = 'Your session may have expired. Please log in again.';
+        } else if (response.status === 403) {
+          errorMessage = 'Access denied';
+          debugInfo = 'You do not have permission to place this bid.';
+        } else {
+          errorMessage = `Server Error ${response.status}`;
+          debugInfo = data?.message || data?.error || 'Unknown error occurred';
         }
 
         console.error('❌ Bid failed:', {
           status: response.status,
           message: errorMessage,
+          debugInfo,
+          requestBody,
           data,
           text: text?.substring(0, 200),
         });
 
-        Alert.alert('Bid Failed', errorMessage, [
-          {
-            text: 'Refresh Data',
-            onPress: async () => {
-              await refreshAllCarPrices();
-              getLiveCars();
+        Alert.alert(
+          errorMessage,
+          debugInfo,
+          [
+            {
+              text: 'Refresh & Retry',
+              onPress: async () => {
+                await refreshAllCarPrices();
+                getLiveCars();
+              },
             },
-          },
-          {text: 'Cancel', style: 'cancel'},
-        ]);
+            {text: 'Close', style: 'cancel'},
+          ],
+        );
       }
     } catch (error: any) {
       console.error('❌ Place Bid Error:', {
@@ -740,7 +810,7 @@ const HomeScreen: React.FC = () => {
             text: 'Retry',
             onPress: () => handlePlaceBid(),
           },
-          {text: 'Cancel', style: 'cancel'},
+          {text: 'Close', style: 'cancel'},
         ],
       );
     } finally {
@@ -838,7 +908,6 @@ const HomeScreen: React.FC = () => {
             </View>
             <View style={styles.timerContainer}>
               <Text style={styles.timeRemaining}>Time Left:</Text>
-              {/* ✅ Display single countdown timer */}
               <View style={styles.timerBox}>
                 <Text style={styles.timerText}>{timeLeft}</Text>
               </View>
