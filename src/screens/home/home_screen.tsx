@@ -996,7 +996,7 @@ const HomeScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}>
           <View style={styles.tabs}>
             {renderTab('LIVE', filteredLiveCars.length)}
-            {renderTab('OCB', 443)}
+            {renderTab('OCB', 0)}
           </View>
 
           <View style={styles.banner}>
@@ -1256,7 +1256,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   exploreText: {color: '#fff', fontSize: 12, fontWeight: '600'},
-  bannerImage: {width: 80, height: 60, resizeMode: 'contain', marginLeft: 120},
+  bannerImage: {width: 100, height: 92, resizeMode: 'contain', marginLeft: 20},
   liveCarsHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1353,7 +1353,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 6,
     marginTop: 10,
-  },
+  },   
   retryText: {color: '#fff', fontWeight: '600'},
   modalOverlay: {
     flex: 1,

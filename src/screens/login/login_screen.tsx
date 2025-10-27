@@ -1,4 +1,5 @@
-// Login.tsx - FIXED NAVIGATION TYPING
+// Login.tsx - UPDATED PASSWORD FIELD WITH EYE ICON IN FRONT & CENTERED TITLE
+ 
 import React, {useState} from 'react';
 import {
   View,
@@ -17,15 +18,14 @@ import {StackNavigationProp} from '@react-navigation/stack';
 import LinearGradient from 'react-native-linear-gradient';
 import {useWebSocket} from '../../utility/WebSocketConnection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import Ionicons from 'react-native-vector-icons/Ionicons';
+ 
 const {width, height} = Dimensions.get('window');
-
+ 
 // Token storage keys
 const TOKEN_KEY = 'auth_token';
 const USER_ID_KEY = 'user_id';
-
-// Define Root Stack Param List
-
+ 
 type RootStackParamList = {
   Login: undefined;
   Home: {
@@ -35,22 +35,21 @@ type RootStackParamList = {
   };
   ForgotPassword: undefined;
 };
-
-// Define navigation prop type
+ 
 type LoginScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   'Login'
 >;
-
+ 
 const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('asif.attar@caryanam.in');
+  const [password, setPassword] = useState('Pass@123');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+ 
   const navigation = useNavigation<LoginScreenNavigationProp>();
-  const {connectWebSocket, isConnected, connectionStatus} = useWebSocket();
-
-  // Store authentication data
-
+  const {connectWebSocket} = useWebSocket();
+ 
   const storeAuthData = async (token: string, userId: string) => {
     try {
       await AsyncStorage.setItem(TOKEN_KEY, token);
@@ -60,9 +59,7 @@ const Login = () => {
       console.error('❌ Error storing auth data:', error);
     }
   };
-
-  // Parse JWT token to extract user info
-
+ 
   const parseJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
@@ -75,22 +72,22 @@ const Login = () => {
           })
           .join(''),
       );
+ 
       return JSON.parse(jsonPayload);
     } catch (error) {
       console.error('❌ Error parsing JWT token:', error);
       return null;
     }
   };
-
+ 
   const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert('Validation Error', 'Username and Password are required');
       return;
     }
-
+ 
     try {
       setLoading(true);
-      console.log('🔐 STEP 1: Attempting login...');
       const response = await fetch(
         'https://caryanamindia.prodchunca.in.net/jwt/login',
         {
@@ -99,37 +96,24 @@ const Login = () => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-
           body: JSON.stringify({
             username: username.trim(),
             password: password.trim(),
           }),
         },
       );
-
-      console.log('📡 Login response status:', response.status);
-
-      // Get response as text first to handle both JSON and plain token responses
-
+ 
       const responseText = await response.text();
-      console.log('📄 Login response text:', responseText);
+ 
       let token: string | null = null;
-
-      // Try to parse as JSON first
-
       try {
         const data = JSON.parse(responseText);
-
         if (data.token) {
           token = data.token;
         } else if (typeof data === 'string' && data.length > 100) {
-          // If it's a string that looks like a JWT token
-
           token = data;
         }
       } catch (jsonError) {
-        // If JSON parsing fails, check if it's a plain token
-
         if (
           responseText &&
           responseText.length > 100 &&
@@ -138,27 +122,16 @@ const Login = () => {
           token = responseText;
         }
       }
+ 
       if (response.ok && token) {
-        console.log('✅ Login successful, token received');
-
-        // Parse JWT token to get user info
-
         const decodedToken = parseJwt(token);
-        console.log('🔓 Decoded token:', decodedToken);
         const userId = decodedToken?.userId || decodedToken?.sub || username;
-
-        // STEP 1: Store JWT token and user data
-
+ 
         await storeAuthData(token, userId);
+ 
         Alert.alert('Success', 'Login Successful! Connecting to live bids...');
-
-        // STEP 2: Connect WebSocket with authentication token
-
-        console.log('🔗 STEP 2: Connecting WebSocket with token...');
         connectWebSocket(token);
-
-        // Navigate to Home screen with properly typed parameters
-
+ 
         setTimeout(() => {
           navigation.navigate('Home', {
             token: token,
@@ -167,8 +140,6 @@ const Login = () => {
           });
         }, 1500);
       } else {
-        // Handle different error response formats
-
         let errorMessage = 'Invalid credentials';
         try {
           const errorData = JSON.parse(responseText);
@@ -178,12 +149,10 @@ const Login = () => {
             errorMessage = responseText;
           }
         }
-
+ 
         Alert.alert('Login Failed', errorMessage);
-        console.error('❌ Login failed:', errorMessage);
       }
     } catch (error: any) {
-      console.error('💥 Network Error:', error);
       Alert.alert(
         'Connection Error',
         'Unable to connect to server. Please check your internet connection.',
@@ -192,7 +161,7 @@ const Login = () => {
       setLoading(false);
     }
   };
-
+ 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#4A5B80" />
@@ -202,9 +171,11 @@ const Login = () => {
           style={styles.gradientOverlay}
         />
       </ImageBackground>
-
+ 
       <View style={styles.content}>
+        {/* Centered Title */}
         <Text style={styles.title}>Login</Text>
+ 
         <Text style={styles.label}>Username/Email</Text>
         <TextInput
           placeholder="Enter username or email"
@@ -216,25 +187,37 @@ const Login = () => {
           autoCorrect={false}
           keyboardType="email-address"
         />
-
+ 
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          placeholder="Enter password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-
+        <View style={styles.passwordContainer}>
+          {/* Eye Icon in front */}
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.eyeIconFront}>
+            <Ionicons
+              name={showPassword ? 'eye' : 'eye-off'}
+              size={22}
+              color="#666"
+            />
+          </TouchableOpacity>
+          <TextInput
+            placeholder="Enter password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            style={[styles.input, styles.passwordInput]}
+            placeholderTextColor="#999"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+ 
         <TouchableOpacity
           style={styles.forgotContainer}
           onPress={() => navigation.navigate('ForgotPassword')}>
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
-
+ 
         <TouchableOpacity
           style={[styles.loginButton, loading && styles.loginButtonDisabled]}
           onPress={handleLogin}
@@ -249,7 +232,7 @@ const Login = () => {
     </View>
   );
 };
-
+ 
 const styles = StyleSheet.create({
   container: {flex: 1},
   background: {...StyleSheet.absoluteFillObject, width, height},
@@ -266,7 +249,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 40,
     color: '#000',
-    alignSelf: 'flex-start',
+    alignSelf: 'center', // centered title
     borderBottomWidth: 3,
     borderBottomColor: '#2c3e94',
     paddingBottom: 5,
@@ -284,6 +267,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    color: 'black',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eyeIconFront: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    zIndex: 1,
+  },
+  passwordInput: {
+    paddingLeft: 10,
+    flex: 1,
   },
   forgotContainer: {alignItems: 'flex-end', marginBottom: 16},
   forgotText: {color: '#2c3e94', fontSize: 14, fontWeight: '500'},
@@ -303,26 +301,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
   },
   loginButtonText: {color: '#fff', fontWeight: 'bold', fontSize: 16},
-  connectionStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
 });
-
+ 
 export default Login;

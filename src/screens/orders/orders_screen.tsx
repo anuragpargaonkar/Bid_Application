@@ -1,4 +1,3 @@
-// src/screens/orders/OrderScreen.tsx
 import React, {useState} from 'react';
 import {
   View,
@@ -9,10 +8,12 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-
-const {width} = Dimensions.get('window');
-
+import {useNavigation, NavigationProp} from '@react-navigation/native';
+ 
+const {width, height} = Dimensions.get('window');
+const scale = width / 375; // base iPhone width for scaling
+const responsive = (size: number) => Math.round(size * scale);
+ 
 const lostCars = [
   {
     id: '10695486765',
@@ -43,16 +44,23 @@ const lostCars = [
     image: require('../../assets/images/car4.png'),
   },
 ];
-
+ 
+// ✅ Define your navigation route types
+type RootStackParamList = {
+  Home: undefined;
+  Main: {screen: string} | undefined;
+  Orders: undefined;
+};
+ 
 const OrderScreen: React.FC = () => {
-  const navigation = useNavigation();
-
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+ 
   const [mainTab, setMainTab] = useState<
     'InNegotiation' | 'Procured' | 'RCTransfer'
   >('InNegotiation');
-
+ 
   const [subTab, setSubTab] = useState<'InNego' | 'Lost'>('InNego');
-
+ 
   const renderContent = () => {
     if (mainTab === 'InNegotiation') {
       if (subTab === 'InNego') {
@@ -67,16 +75,24 @@ const OrderScreen: React.FC = () => {
             <Text style={styles.subtitle}>
               Go back to home to participate in auctions
             </Text>
+ 
+            {/* ✅ Updated Home button navigation */}
             <TouchableOpacity
               style={styles.homeButton}
-              onPress={() => navigation.navigate('Home' as never)}>
+              onPress={() => {
+                try {
+                  navigation.navigate('Home');
+                } catch {
+                  navigation.navigate('Main', {screen: 'Home'});
+                }
+              }}>
               <Text style={styles.homeButtonText}>Home</Text>
             </TouchableOpacity>
           </View>
         );
       } else {
         return (
-          <ScrollView style={{padding: 16}}>
+          <ScrollView style={{padding: responsive(16)}}>
             {lostCars.map(car => (
               <View key={car.id} style={styles.card}>
                 <Text style={styles.lostDate}>LOST ON {car.date}</Text>
@@ -86,7 +102,7 @@ const OrderScreen: React.FC = () => {
                     style={styles.cardImage}
                     resizeMode="cover"
                   />
-                  <View style={{flex: 1, paddingLeft: 10}}>
+                  <View style={{flex: 1, paddingLeft: responsive(10)}}>
                     <Text style={styles.carTitle}>{car.name}</Text>
                     <Text style={styles.carPrice}>{car.price}</Text>
                     <Text style={styles.carId}>Appt.ID- {car.id}</Text>
@@ -114,7 +130,7 @@ const OrderScreen: React.FC = () => {
               <Text style={styles.procuredAmount}>₹ 0</Text>
             </View>
           </View>
-
+ 
           <View style={styles.emptyStateContainer}>
             <Text style={styles.subtitle}>
               Oops, you have no procured cars.
@@ -134,13 +150,13 @@ const OrderScreen: React.FC = () => {
       );
     }
   };
-
+ 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Orders</Text>
       </View>
-
+ 
       <View style={styles.mainTabs}>
         {['In Negotiation', 'Procured', 'RC Transfer'].map(tab => {
           const value = tab.replace(' ', '') as
@@ -166,7 +182,7 @@ const OrderScreen: React.FC = () => {
           );
         })}
       </View>
-
+ 
       {mainTab === 'InNegotiation' && (
         <View style={styles.subTabs}>
           {['InNego', 'Lost'].map(tab => (
@@ -188,122 +204,133 @@ const OrderScreen: React.FC = () => {
           ))}
         </View>
       )}
-
+ 
       {renderContent()}
     </View>
   );
 };
-
+ 
 export default OrderScreen;
-
+ 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#fff'},
- header: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginVertical: 10,
-    marginLeft: 16,
+  header: {
+    fontSize: responsive(18),
+    fontWeight: '600',
+    marginVertical: responsive(10),
+    marginLeft: responsive(16),
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: responsive(20),
     fontWeight: 'bold',
     color: '#000',
-    marginRight: 340,
+    marginRight: responsive(20),
   },
   mainTabs: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 10,
+    paddingVertical: responsive(10),
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
   },
-  mainTabButton: {paddingVertical: 8, paddingHorizontal: 12},
-  mainTabText: {fontSize: 16, color: '#555'},
+  mainTabButton: {
+    paddingVertical: responsive(8),
+    paddingHorizontal: responsive(12),
+  },
+  mainTabText: {fontSize: responsive(16), color: '#555'},
   activeMainTab: {borderBottomWidth: 2, borderBottomColor: '#007AFF'},
   activeMainTabText: {color: '#007AFF', fontWeight: 'bold'},
-
+ 
   subTabs: {
     flexDirection: 'row',
     alignSelf: 'center',
-    marginVertical: 10,
+    marginVertical: responsive(10),
     borderWidth: 1,
     borderColor: '#f0a500',
-    borderRadius: 8,
+    borderRadius: responsive(8),
     overflow: 'hidden',
   },
   subTabButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 20,
+    paddingVertical: responsive(6),
+    paddingHorizontal: responsive(20),
     backgroundColor: '#fff',
   },
-  subTabText: {color: '#555', fontSize: 14},
+  subTabText: {color: '#555', fontSize: responsive(14)},
   activeSubTab: {backgroundColor: '#FFE5D1'},
   activeSubTabText: {color: '#FF7F50', fontWeight: 'bold'},
-
+ 
   emptyStateContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: responsive(20),
   },
-  image: {width: width * 0.5, height: width * 0.5, marginBottom: 20},
-  title: {fontSize: 18, fontWeight: '600', marginBottom: 8},
+  image: {
+    width: width * 0.5,
+    height: width * 0.5,
+    marginBottom: responsive(20),
+  },
+  title: {fontSize: responsive(18), fontWeight: '600', marginBottom: responsive(8)},
   subtitle: {
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#888',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: responsive(10),
   },
   homeButton: {
     backgroundColor: '#FFE5D1',
-    paddingHorizontal: 30,
-    paddingVertical: 10,
-    borderRadius: 6,
+    paddingHorizontal: responsive(30),
+    paddingVertical: responsive(10),
+    borderRadius: responsive(6),
   },
-  homeButtonText: {color: '#FF7F50', fontWeight: 'bold', fontSize: 16},
-
+  homeButtonText: {
+    color: '#FF7F50',
+    fontWeight: 'bold',
+    fontSize: responsive(16),
+  },
+ 
   card: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 16,
-    padding: 10,
+    borderRadius: responsive(8),
+    marginBottom: responsive(16),
+    padding: responsive(10),
   },
   lostDate: {
-    fontSize: 12,
+    fontSize: responsive(12),
     color: '#FF7F7F',
-    marginBottom: 6,
+    marginBottom: responsive(6),
     fontWeight: 'bold',
   },
   cardContent: {
     flexDirection: 'row',
   },
   cardImage: {
-    width: 80,
-    height: 60,
-    borderRadius: 4,
+    width: responsive(80),
+    height: responsive(60),
+    borderRadius: responsive(4),
   },
-  carTitle: {fontSize: 15, fontWeight: '600'},
-  carPrice: {color: '#000', marginVertical: 4},
-  carId: {fontSize: 12, color: '#666'},
-
+  carTitle: {fontSize: responsive(15), fontWeight: '600'},
+  carPrice: {color: '#000', marginVertical: responsive(4)},
+  carId: {fontSize: responsive(12), color: '#666'},
+ 
   procuredContainer: {
     flex: 1,
-    padding: 16,
+    padding: responsive(16),
   },
   procuredBox: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: responsive(12),
     borderWidth: 1,
     borderColor: '#ddd',
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: responsive(20),
   },
   procuredRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: responsive(14),
+    paddingHorizontal: responsive(16),
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
@@ -312,7 +339,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   procuredLabel: {
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#333',
   },
   procuredAmount: {
@@ -320,11 +347,11 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   disabledRefreshButton: {
-    marginTop: 20,
+    marginTop: responsive(20),
     backgroundColor: '#e0e0e0',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 6,
+    paddingVertical: responsive(10),
+    paddingHorizontal: responsive(20),
+    borderRadius: responsive(6),
     flexDirection: 'row',
     alignItems: 'center',
   },

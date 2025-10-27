@@ -27,7 +27,7 @@ const BottomNavigationScreen = () => {
           let iconSource;
 
           switch (route.name) {
-            case 'HomeTab':
+            case 'Home':
               iconSource = homeIcon;
               break;
             case 'MyCars':
@@ -60,7 +60,7 @@ const BottomNavigationScreen = () => {
         tabBarActiveTintColor: '#007bff',
         tabBarInactiveTintColor: '#888',
       })}>
-      <Tab.Screen name="HomeTab" component={HomeScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="MyCars" component={MyCarsScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} />
       <Tab.Screen name="Addons" component={AddOnsScreen} />
