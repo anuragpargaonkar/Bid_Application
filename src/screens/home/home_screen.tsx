@@ -1,4 +1,4 @@
-// HomeScreen.tsx - UPDATED WITH DARK NAVY & SOFT LAVENDER + CLICKABLE DEMO NOTIFICATIONS
+// HomeScreen.tsx - UPDATED WITH DARK NAVY & SOFT LAVENDER + CLICKABLE DEMO NOTIFICATIONS + CLOSEABLE LOW BALANCE WARNING
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
@@ -100,6 +100,7 @@ const HomeScreen: React.FC = () => {
   } | null>(null);
   const [bidAmounts, setBidAmounts] = useState<{[bidCarId: string]: string}>({});
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showLowBalanceWarning, setShowLowBalanceWarning] = useState(true); // New state
 
   const bidInitializedRef = useRef<string | null>(null);
   const countdownInterval = useRef<NodeJS.Timeout | null>(null);
@@ -773,11 +774,6 @@ const HomeScreen: React.FC = () => {
                 placeholderTextColor="#999"
               />
             </View>
-            <View style={styles.filterButton}>
-              <TouchableOpacity>
-                <Ionicons name="options" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
         <View style={styles.whiteContentArea}>
@@ -909,22 +905,32 @@ const HomeScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-      <View style={styles.warningFixedContainer}>
-        <View style={styles.warningIconText}>
-          <MaterialCommunityIcons
-            name="wallet-outline"
-            size={26}
-            color="#fff"
-            style={{marginRight: 10}}
-          />
-          <View style={{flex: 1}}>
-            <Text style={styles.warningTitle}>Low Account Balance</Text>
-            <Text style={styles.warningText}>
-              Account balance below ₹10,000. Deposit to continue bidding.
-            </Text>
+
+      {/* Low Balance Warning with Close Button */}
+      {showLowBalanceWarning && (
+        <View style={styles.warningFixedContainer}>
+          <View style={styles.warningIconText}>
+            <MaterialCommunityIcons
+              name="wallet-outline"
+              size={26}
+              color="#fff"
+              style={{marginRight: 10}}
+            />
+            <View style={{flex: 1}}>
+              <Text style={styles.warningTitle}>Low Account Balance</Text>
+              <Text style={styles.warningText}>
+                Account balance below ₹10,000. Deposit to continue bidding.
+              </Text>
+            </View>
           </View>
+          <TouchableOpacity
+            onPress={() => setShowLowBalanceWarning(false)}
+            style={styles.closeWarningButton}
+            activeOpacity={0.7}>
+            <Ionicons name="close" size={22} color="#fff" />
+          </TouchableOpacity>
         </View>
-      </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -961,7 +967,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#262a4f',
   },
-  searchContainer: {flexDirection: 'row', gap: 12},
+  searchContainer: {flexDirection: 'row', gap: 12, width: 320, height: 60},
   searchBar: {
     flex: 1,
     flexDirection: 'row',
@@ -973,14 +979,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   searchInput: {flex: 1, color: '#1F2937', fontSize: 15, fontWeight: '500'},
-  filterButton: {
-    borderRadius: 16,
-    width: 52,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#a9acd6',
-  },
   whiteContentArea: {
     flex: 1,
     backgroundColor: '#f8f9fc',
@@ -1365,6 +1363,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
     opacity: 0.95,
+  },
+  closeWarningButton: {
+    marginLeft: 12,
+    padding: 4,
   },
 
   // Clickable Notification Banner

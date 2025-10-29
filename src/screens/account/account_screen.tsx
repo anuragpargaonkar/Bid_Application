@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { launchImageLibrary } from 'react-native-image-picker';
 
 const TOKEN_KEY = 'auth_token';
 
@@ -24,12 +25,13 @@ const AccountScreen = ({ navigation }: any) => {
   const [doNotDisturb, setDoNotDisturb] = useState(false);
   const [dealerData, setDealerData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const modalAnim = useRef(new Animated.Value(0)).current;
 
-  // ---------- JWT ----------
+  // ---------- JWT PARSE ----------
   const parseJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
@@ -47,7 +49,7 @@ const AccountScreen = ({ navigation }: any) => {
     }
   };
 
-  // ---------- FETCH DEALER ----------
+  // ---------- FETCH DEALER + PHOTO ----------
   const fetchDealerData = async () => {
     try {
       setLoading(true);
@@ -60,33 +62,127 @@ const AccountScreen = ({ navigation }: any) => {
 
       const decoded = parseJwt(token);
       const dealerId = decoded?.dealerId;
-      if (!dealerId) {
-        Alert.alert('Error', 'Dealer ID not found in token.');
+      const userId = decoded?.userId;
+      if (!dealerId || !userId) {
+        Alert.alert('Error', 'User or Dealer ID not found.');
         setLoading(false);
         return;
       }
 
-      const response = await fetch(
-        `http://caryanamindia.prodchunca.in.net/dealer/${dealerId}`,
+      // Dealer info
+      const dealerRes = await fetch(
+        `https://caryanamindia.prodchunca.in.net/dealer/${dealerId}`,
         {
-          method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
-            'Content-Type': 'application/json',
           },
         },
       );
 
-      const json = await response.json();
-      if (response.ok && json?.dealerDto) {
-        setDealerData(json.dealerDto);
+      const dealerJson = await dealerRes.json();
+      if (dealerRes.ok && dealerJson?.dealerDto) {
+        setDealerData(dealerJson.dealerDto);
+      }
+
+      // Profile photo
+      const photoRes = await fetch(
+        `https://caryanamindia.prodchunca.in.net/ProfilePhoto/getbyuserid?userId=${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (photoRes.ok) {
+        const blob = await photoRes.blob();
+        const imageUrl = URL.createObjectURL(blob);
+        setPhotoUrl(imageUrl);
       } else {
-        Alert.alert('Error', json?.exception || 'Failed to load dealer data.');
+        setPhotoUrl(null);
       }
     } catch (error) {
       console.error('Error fetching dealer data:', error);
       Alert.alert('Error', 'Unable to fetch dealer data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------- ADD IMAGE ----------
+  const handleAddImage = async () => {
+    try {
+      const token = await AsyncStorage.getItem(TOKEN_KEY);
+      if (!token) return Alert.alert('Error', 'Missing token.');
+      const decoded = parseJwt(token);
+      const userId = decoded?.userId;
+
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+      });
+
+      if (result.didCancel || !result.assets?.length) return;
+
+      const file = result.assets[0];
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        name: file.fileName || 'photo.jpg',
+        type: file.type || 'image/jpeg',
+      } as any);
+
+      setLoading(true);
+      const res = await fetch(
+        `http://caryanamindia.prodchunca.in.net/ProfilePhoto/add?userId=${userId}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+            'Content-Type': 'multipart/form-data',
+          },
+          body: formData,
+        },
+      );
+
+      if (res.ok) {
+        Alert.alert('Success', 'Profile photo added successfully.');
+        fetchDealerData();
+      } else {
+        Alert.alert('Error', 'Failed to upload photo.');
+      }
+    } catch (error) {
+      console.error('Add image error:', error);
+      Alert.alert('Error', 'Could not upload photo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------- DELETE IMAGE ----------
+  const handleDeleteImage = async () => {
+    try {
+      const token = await AsyncStorage.getItem(TOKEN_KEY);
+      if (!token) return Alert.alert('Error', 'Missing token.');
+      const decoded = parseJwt(token);
+      const userId = decoded?.userId;
+
+      setLoading(true);
+      const res = await fetch(
+        `http://caryanamindia.prodchunca.in.net/ProfilePhoto/deletebyuserid?userId=${userId}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (res.ok) {
+        setPhotoUrl(null);
+        Alert.alert('Deleted', 'Profile photo removed successfully.');
+      } else {
+        Alert.alert('Error', 'Failed to delete photo.');
+      }
+    } catch (error) {
+      console.error('Delete image error:', error);
+      Alert.alert('Error', 'Could not delete photo.');
     } finally {
       setLoading(false);
     }
@@ -110,7 +206,7 @@ const AccountScreen = ({ navigation }: any) => {
     }).start(() => setModalVisible(false));
   };
 
-  // ---------- LOGOUT (shared) ----------
+  // ---------- LOGOUT ----------
   const confirmLogout = () => {
     Alert.alert(
       'Logout',
@@ -134,7 +230,7 @@ const AccountScreen = ({ navigation }: any) => {
     );
   };
 
-  // ---------- EFFECTS ----------
+  // ---------- EFFECT ----------
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -142,11 +238,10 @@ const AccountScreen = ({ navigation }: any) => {
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
-
     fetchDealerData();
   }, []);
 
-  // ---------- RENDER ----------
+  // ---------- UI ----------
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       {/* HEADER */}
@@ -180,7 +275,7 @@ const AccountScreen = ({ navigation }: any) => {
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Top Banner */}
+        {/* TOP BANNER */}
         <View style={styles.topBanner}>
           <Text style={styles.topBannerText}>Get unlimited app access</Text>
           <Text style={styles.topBannerSub}>
@@ -196,7 +291,11 @@ const AccountScreen = ({ navigation }: any) => {
           activeOpacity={0.9}
           style={styles.profileCard}
           onPress={openModal}>
-          <Ionicons name="person-circle-outline" size={64} color="#262A4F" />
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.profileAvatar} />
+          ) : (
+            <Ionicons name="person-circle-outline" size={64} color="#262A4F" />
+          )}
           <View style={styles.profileText}>
             <Text style={styles.profileName}>
               {dealerData
@@ -283,7 +382,7 @@ const AccountScreen = ({ navigation }: any) => {
           <Ionicons name="chevron-forward-outline" size={24} color="#A9ACD6" />
         </TouchableOpacity>
 
-        {/* NEW LOGOUT ITEM – placed at the very bottom */}
+        {/* LOGOUT */}
         <TouchableOpacity
           style={[styles.largeListItem, styles.logoutListItem]}
           onPress={confirmLogout}>
@@ -291,7 +390,6 @@ const AccountScreen = ({ navigation }: any) => {
             <View style={styles.listIconText}>
               <Ionicons name="log-out-outline" size={24} color="#D32F2F" />
               <Text style={[styles.largeListTitle, styles.logoutTitle]}>
-                {' '}
                 Logout
               </Text>
             </View>
@@ -300,11 +398,7 @@ const AccountScreen = ({ navigation }: any) => {
       </ScrollView>
 
       {/* PROFILE DETAIL MODAL */}
-      <Modal
-        transparent
-        visible={modalVisible}
-        animationType="none"
-        onRequestClose={closeModal}>
+      <Modal transparent visible={modalVisible} onRequestClose={closeModal}>
         <TouchableWithoutFeedback onPress={closeModal}>
           <View style={styles.modalOverlay} />
         </TouchableWithoutFeedback>
@@ -329,16 +423,28 @@ const AccountScreen = ({ navigation }: any) => {
           ) : dealerData ? (
             <>
               <View style={styles.profileImageContainer}>
-                <Image
-                  source={require('../../assets/images/image.png')}
-                  style={styles.profileImage}
-                  resizeMode="contain"
-                />
+                {photoUrl ? (
+                  <Image
+                    source={{ uri: photoUrl }}
+                    style={styles.profileImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={120}
+                    color="#ccc"
+                  />
+                )}
                 <View style={styles.imageButtonRow}>
-                  <TouchableOpacity style={styles.addImageButton}>
+                  <TouchableOpacity
+                    style={styles.addImageButton}
+                    onPress={handleAddImage}>
                     <Text style={styles.addImageText}>ADD IMAGE</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteImageButton}>
+                  <TouchableOpacity
+                    style={styles.deleteImageButton}
+                    onPress={handleDeleteImage}>
                     <Text style={styles.deleteImageText}>DELETE IMAGE</Text>
                   </TouchableOpacity>
                 </View>
@@ -386,15 +492,11 @@ const COLORS = {
   secondary: '#a9acd6',
   background: '#f5f6fa',
   white: '#FFFFFF',
-  textDark: '#0F172A',
-  textGray: '#374151',
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scrollArea: { flex: 1 },
-
-  /* Header */
   header: {
     paddingBottom: 10,
     borderBottomLeftRadius: 26,
@@ -433,8 +535,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoutIcon: { width: 22, height: 22 },
-
-  /* Top Banner */
   topBanner: {
     backgroundColor: '#A9ACD6',
     marginHorizontal: 14,
@@ -447,188 +547,161 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: '#262A4F',
     marginBottom: 4,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  topBannerSub: { fontSize: 16, color: '#000', fontWeight: '600' },
+  topBannerSub: { fontSize: 14, color: '#333' },
   highlight: { color: '#262A4F', fontWeight: '700' },
-  knowMore: { color: '#262A4F', fontSize: 15, fontWeight: '600' },
-
-  /* Profile Card */
+  knowMore: {
+    color: '#262A4F',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
+    marginTop: 18,
     marginHorizontal: 14,
-    marginTop: 16,
-    padding: 18,
+    padding: 14,
     borderRadius: 16,
     elevation: 3,
   },
-  profileText: { flex: 1, marginLeft: 12 },
-  profileName: { fontSize: 18, fontWeight: '700', color: '#262A4F' },
-  profileDetails: { fontSize: 14, color: '#555', marginTop: 2 },
-
-  /* Two Cards */
+  profileAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginRight: 10,
+  },
+  profileText: { flex: 1 },
+  profileName: { fontSize: 16, fontWeight: '600', color: '#262A4F' },
+  profileDetails: { color: '#666', fontSize: 13 },
   twoCards: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 10,
     marginTop: 18,
+    marginHorizontal: 14,
   },
   bigCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    paddingVertical: 26,
-    paddingHorizontal: 18,
-    marginHorizontal: 6,
-    elevation: 2,
-    borderColor: '#A9ACD6',
-    borderWidth: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 18,
+    elevation: 3,
+    marginHorizontal: 4,
   },
   bigCardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginVertical: 8,
+    fontSize: 15,
+    fontWeight: '600',
     color: '#262A4F',
-  },
-  bigCardSub: { fontSize: 15, color: '#555', marginBottom: 12 },
-  rechargeBtn: {
-    backgroundColor: '#262A4F',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  bigRechargeText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  bigAccentLink: { color: '#262A4F', fontSize: 15, fontWeight: '600' },
-
-  /* Story Banner */
-  storyBanner: {
-    backgroundColor: '#E6E7F3',
-    marginHorizontal: 14,
-    marginTop: 18,
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    borderRadius: 18,
-    alignItems: 'center',
-  },
-  storyText: {
-    fontSize: 18,
-    color: '#262A4F',
-    fontWeight: '700',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  followBtn: {
-    backgroundColor: '#262A4F',
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 28,
     marginTop: 10,
   },
-  followText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-
-  /* List Items (Do Not Disturb, Rewards, Logout) */
-  largeListItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 14,
-    marginTop: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    borderRadius: 14,
-    borderColor: '#A9ACD6',
-    borderWidth: 1,
+  bigCardSub: { fontSize: 13, color: '#666', marginTop: 4 },
+  rechargeBtn: { marginTop: 10 },
+  bigRechargeText: {
+    color: '#262A4F',
+    fontWeight: '700',
+    fontSize: 13,
   },
-  listTextContainer: { flexDirection: 'column', flex: 1 },
-  listIconText: { flexDirection: 'row', alignItems: 'center' },
-  largeListTitle: { fontSize: 17, fontWeight: '600', color: '#262A4F' },
-  listSubAligned: { fontSize: 13, color: '#555', marginTop: 4, marginLeft: 28 },
-
-  /* Logout List Item – special colour */
-  logoutListItem: {
+  bigAccentLink: {
+    color: '#A9ACD6',
+    fontWeight: '600',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  storyBanner: {
+    backgroundColor: COLORS.white,
     marginTop: 20,
-    borderColor: '#FFB4B4',
+    marginHorizontal: 14,
+    padding: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    elevation: 3,
   },
+  storyText: { fontSize: 15, fontWeight: '600', color: '#262A4F' },
+  followBtn: {
+    marginTop: 8,
+    backgroundColor: '#262A4F',
+    paddingVertical: 8,
+    paddingHorizontal: 22,
+    borderRadius: 18,
+  },
+  followText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  largeListItem: {
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    marginHorizontal: 14,
+    marginTop: 14,
+    borderRadius: 16,
+    elevation: 3,
+  },
+  listTextContainer: { flex: 1 },
+  listIconText: { flexDirection: 'row', alignItems: 'center' },
+  largeListTitle: { fontSize: 15, color: '#262A4F', fontWeight: '600' },
+  listSubAligned: { color: '#666', fontSize: 13, marginLeft: 28 },
+  logoutListItem: { marginTop: 20 },
   logoutTitle: { color: '#D32F2F' },
-
-  /* Modal */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   modalContainer: {
     position: 'absolute',
-    top: '15%',
-    left: '5%',
-    right: '5%',
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    paddingVertical: 20,
-    paddingHorizontal: 18,
-    elevation: 10,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    elevation: 20,
   },
-  profileImageContainer: { alignItems: 'center', marginBottom: 16 },
+  profileImageContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   profileImage: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#ddd',
+    marginBottom: 8,
   },
-  imageButtonRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 12,
-    gap: 10,
-  },
+  imageButtonRow: { flexDirection: 'row', gap: 8 },
   addImageButton: {
-    backgroundColor: '#000',
-    paddingVertical: 8,
+    backgroundColor: '#262A4F',
+    paddingVertical: 6,
     paddingHorizontal: 14,
-    borderRadius: 6,
-  },
-  deleteImageButton: {
-    backgroundColor: '#FFB4B4',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   addImageText: { color: '#fff', fontWeight: '600' },
-  deleteImageText: { color: '#fff', fontWeight: '600' },
-
+  deleteImageButton: {
+    backgroundColor: '#ccc',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  deleteImageText: { color: '#000', fontWeight: '600' },
   detailBox: {
-    backgroundColor: '#F5F6FA',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: '#f5f6fa',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 8,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e1e1',
+    marginBottom: 6,
   },
-  detailLabel: {
-    fontWeight: '600',
-    color: '#262A4F',
-    fontSize: 14,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#555',
-    maxWidth: '60%',
-    textAlign: 'right',
-  },
-
+  detailLabel: { fontWeight: '600', color: '#262A4F' },
+  detailValue: { color: '#333' },
   editButton: {
+    marginTop: 14,
     backgroundColor: '#262A4F',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center',
   },
-  editButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  editButtonText: { color: '#fff', fontWeight: '700' },
 });
