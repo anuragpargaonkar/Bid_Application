@@ -1,4 +1,5 @@
-// ForgotPassword.tsx
+// ForgotPassword.tsx - FINAL (Green Theme + Full Curved Card)
+
 import React, { useState } from 'react';
 import {
   View,
@@ -13,35 +14,35 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
- 
+import LinearGradient from 'react-native-linear-gradient';
+
 const { width, height } = Dimensions.get('window');
- 
+
 // Navigation types
 type RootStackParamList = {
   Login: undefined;
   ForgotPassword: undefined;
 };
- 
+
 type ForgotPasswordNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'ForgotPassword',
-  'Please enter your email to reset your password'
->
- 
+  'ForgotPassword'
+>;
+
 const ForgotPassword = () => {
   const navigation = useNavigation<ForgotPasswordNavigationProp>();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
- 
+
   const handleResetPassword = async () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       Alert.alert('Validation Error', 'Please enter your email.');
       return;
     }
- 
+
     setLoading(true);
- 
+
     try {
       const response = await fetch(
         'https://caryanamindia.prodchunca.in.net/cars/forgot-password',
@@ -54,9 +55,9 @@ const ForgotPassword = () => {
           body: JSON.stringify({ email: trimmedEmail }),
         }
       );
- 
+
       const data = await response.json();
- 
+
       if (response.ok) {
         Alert.alert(
           'Success',
@@ -79,83 +80,120 @@ const ForgotPassword = () => {
       setLoading(false);
     }
   };
- 
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.content}>
+    <LinearGradient
+      colors={['#1a4d3e', '#2d5f4f', '#1a4d3e']}
+      style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1a4d3e" />
+
+      {/* Top Section */}
+      <View style={styles.topCurvedSection}>
         <Text style={styles.title}>Forgot Password</Text>
- 
-        <Text style={styles.label}>Enter your email</Text>
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholderTextColor="#999"
-        />
- 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleResetPassword}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Send Reset Link</Text>
-          )}
-        </TouchableOpacity>
- 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.navigate('Login')}
-        >
-          <Text style={styles.backText}>Back to Login</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+
+      {/* Full Curved White Card */}
+      <View style={styles.cardContainer}>
+        <View style={styles.content}>
+          <Text style={styles.label}>Enter your email</Text>
+          <TextInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholderTextColor="#999"
+          />
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleResetPassword}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Send Reset Link</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.backText}>Back to Login</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </LinearGradient>
   );
 };
- 
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 24 },
-  content: {
-    flex: 1,
+  container: { flex: 1 },
+
+  topCurvedSection: {
+    paddingTop: 150,
+    paddingBottom: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: height * 0.05,
   },
   title: {
+    color: '#fff',
     fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 40,
-    color: '#2c3e94',
-    alignSelf: 'center',
+    fontWeight: '700',
+    borderBottomWidth: 3,
+    borderBottomColor: '#fff',
+    paddingBottom: 5,
   },
-  label: { fontSize: 16, marginBottom: 8, color: '#000', fontWeight: '500' },
+
+  cardContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 40,
+    marginHorizontal: 20,
+    marginBottom: 300,
+    paddingTop: 40,
+    paddingHorizontal: 30,
+    elevation: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+
+  content: { flex: 1, justifyContent: 'flex-start' },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: '#000',
+    fontWeight: '500',
+  },
   input: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
     backgroundColor: '#f9f9f9',
+    color: '#333',
+    fontSize: 15,
   },
   button: {
-    backgroundColor: '#2c3e94',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: '#5a8a74',
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#5a8a74',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
-  buttonDisabled: { backgroundColor: '#6c7a9c' },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  backButton: { marginTop: 20, alignItems: 'center' },
-  backText: { color: '#2c3e94', fontWeight: '500' },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16, letterSpacing: 1 },
+  backButton: { marginTop: 25, alignItems: 'center' },
+  backText: { color: '#1a4d3e', fontWeight: '500', fontSize: 14 },
 });
- 
+
 export default ForgotPassword;
- 
- 

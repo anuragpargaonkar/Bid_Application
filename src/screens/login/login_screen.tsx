@@ -1,5 +1,5 @@
-// Login.tsx - UPDATED PASSWORD FIELD WITH EYE ICON IN FRONT & CENTERED TITLE
- 
+// Login.tsx - FINAL (Background #051A2F + Eye Icon + Centered Title + Full Curved Card)
+
 import React, {useState} from 'react';
 import {
   View,
@@ -10,7 +10,6 @@ import {
   Alert,
   Dimensions,
   StatusBar,
-  ImageBackground,
   ActivityIndicator,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
@@ -19,13 +18,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import {useWebSocket} from '../../utility/WebSocketConnection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
- 
+
 const {width, height} = Dimensions.get('window');
- 
-// Token storage keys
+
 const TOKEN_KEY = 'auth_token';
 const USER_ID_KEY = 'user_id';
- 
+const USER_EMAIL_KEY = 'user_email';
+
 type RootStackParamList = {
   Login: undefined;
   Home: {
@@ -35,31 +34,32 @@ type RootStackParamList = {
   };
   ForgotPassword: undefined;
 };
- 
+
 type LoginScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   'Login'
 >;
- 
+
 const Login = () => {
   const [username, setUsername] = useState('asif.attar@caryanam.in');
   const [password, setPassword] = useState('Pass@123');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
- 
+
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const {connectWebSocket} = useWebSocket();
- 
-  const storeAuthData = async (token: string, userId: string) => {
+
+  const storeAuthData = async (token: string, userId: string, email: string) => {
     try {
       await AsyncStorage.setItem(TOKEN_KEY, token);
       await AsyncStorage.setItem(USER_ID_KEY, userId);
+      await AsyncStorage.setItem(USER_EMAIL_KEY, email);
       console.log('✅ Auth data stored successfully');
     } catch (error) {
       console.error('❌ Error storing auth data:', error);
     }
   };
- 
+
   const parseJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
@@ -72,20 +72,19 @@ const Login = () => {
           })
           .join(''),
       );
- 
       return JSON.parse(jsonPayload);
     } catch (error) {
       console.error('❌ Error parsing JWT token:', error);
       return null;
     }
   };
- 
+
   const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert('Validation Error', 'Username and Password are required');
       return;
     }
- 
+
     try {
       setLoading(true);
       const response = await fetch(
@@ -102,9 +101,9 @@ const Login = () => {
           }),
         },
       );
- 
+
       const responseText = await response.text();
- 
+
       let token: string | null = null;
       try {
         const data = JSON.parse(responseText);
@@ -114,24 +113,21 @@ const Login = () => {
           token = data;
         }
       } catch (jsonError) {
-        if (
-          responseText &&
-          responseText.length > 100 &&
-          responseText.includes('.')
-        ) {
+        if (responseText && responseText.length > 100 && responseText.includes('.')) {
           token = responseText;
         }
       }
- 
+
       if (response.ok && token) {
         const decodedToken = parseJwt(token);
         const userId = decodedToken?.userId || decodedToken?.sub || username;
- 
-        await storeAuthData(token, userId);
- 
+        const userEmail = decodedToken?.email || username;
+
+        await storeAuthData(token, userId, userEmail);
+
         Alert.alert('Success', 'Login Successful! Connecting to live bids...');
         connectWebSocket(token);
- 
+
         setTimeout(() => {
           navigation.navigate('Home', {
             token: token,
@@ -149,7 +145,7 @@ const Login = () => {
             errorMessage = responseText;
           }
         }
- 
+
         Alert.alert('Login Failed', errorMessage);
       }
     } catch (error: any) {
@@ -161,113 +157,130 @@ const Login = () => {
       setLoading(false);
     }
   };
- 
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#4A5B80" />
-      <ImageBackground style={styles.background} resizeMode="cover">
-        <LinearGradient
-          colors={['rgba(142,158,171,0.7)', 'rgba(74,91,128,0.7)']}
-          style={styles.gradientOverlay}
-        />
-      </ImageBackground>
- 
-      <View style={styles.content}>
-        {/* Centered Title */}
+    <LinearGradient
+      colors={['#051A2F', '#051A2F', '#051A2F']}
+      style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#051A2F" />
+
+      {/* Top Curved Section */}
+      <View style={styles.topCurvedSection}>
         <Text style={styles.title}>Login</Text>
- 
-        <Text style={styles.label}>Username/Email</Text>
-        <TextInput
-          placeholder="Enter username or email"
-          value={username}
-          onChangeText={setUsername}
-          style={styles.input}
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-        />
- 
-        <Text style={styles.label}>Password</Text>
-        <View style={styles.passwordContainer}>
-          {/* Eye Icon in front */}
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={styles.eyeIconFront}>
-            <Ionicons
-              name={showPassword ? 'eye' : 'eye-off'}
-              size={22}
-              color="#666"
-            />
-          </TouchableOpacity>
-          <TextInput
-            placeholder="Enter password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            style={[styles.input, styles.passwordInput]}
-            placeholderTextColor="#999"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
- 
-        <TouchableOpacity
-          style={styles.forgotContainer}
-          onPress={() => navigation.navigate('ForgotPassword')}>
-          <Text style={styles.forgotText}>Forgot Password?</Text>
-        </TouchableOpacity>
- 
-        <TouchableOpacity
-          style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}>
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
-          )}
-        </TouchableOpacity>
       </View>
-    </View>
+
+      {/* White Full Curved Card Section */}
+      <View style={styles.cardContainer}>
+        <View style={styles.content}>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Username/Email</Text>
+            <TextInput
+              placeholder="Enter username or email"
+              value={username}
+              onChangeText={setUsername}
+              style={styles.input}
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIconFront}>
+                <Ionicons
+                  name={showPassword ? 'eye' : 'eye-off'}
+                  size={22}
+                  color="#666"
+                />
+              </TouchableOpacity>
+              <TextInput
+                placeholder="Enter password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                style={[styles.input, styles.passwordInput]}
+                placeholderTextColor="#999"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.forgotContainer}
+            onPress={() => navigation.navigate('ForgotPassword')}>
+            <Text style={styles.forgotText}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.loginButtonText}>LOGIN</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </LinearGradient>
   );
 };
- 
+
 const styles = StyleSheet.create({
   container: {flex: 1},
-  background: {...StyleSheet.absoluteFillObject, width, height},
-  gradientOverlay: {...StyleSheet.absoluteFillObject},
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
+
+  topCurvedSection: {
+    paddingTop: 150,
+    paddingBottom: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: height * 0.05,
-    zIndex: 1,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 40,
-    color: '#000',
-    alignSelf: 'center', // centered title
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: '700',
     borderBottomWidth: 3,
-    borderBottomColor: '#2c3e94',
+    borderBottomColor: '#fff',
     paddingBottom: 5,
   },
-  label: {fontSize: 16, marginBottom: 6, color: '#000', fontWeight: '500'},
-  input: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+
+  cardContainer: {
+    flex: 1,
     backgroundColor: '#fff',
+    borderRadius: 40,
+    marginHorizontal: 20,
+    marginBottom: 200,
+    paddingTop: 40,
+    paddingHorizontal: 30,
+    elevation: 15,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    color: 'black',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  content: {flex: 1},
+  formGroup: {marginBottom: 20},
+  label: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#f8f8f8',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 15,
+    color: '#333',
+    fontSize: 15,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -275,32 +288,42 @@ const styles = StyleSheet.create({
   },
   eyeIconFront: {
     position: 'absolute',
-    right: 12,
-    top: 12,
+    right: 15,
+    top: 15,
     zIndex: 1,
   },
   passwordInput: {
     paddingLeft: 10,
     flex: 1,
   },
-  forgotContainer: {alignItems: 'flex-end', marginBottom: 16},
-  forgotText: {color: '#2c3e94', fontSize: 14, fontWeight: '500'},
+  forgotContainer: {
+    alignItems: 'flex-end',
+    marginTop: -10,
+    marginBottom: 15,
+  },
+  forgotText: {
+    color: '#61AFFE',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   loginButton: {
-    backgroundColor: '#2c3e94',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: '#61AFFE',
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    shadowColor: '#2c3e94',
-    shadowOffset: {width: 0, height: 4},
+    elevation: 3,
+    shadowColor: '#61AFFE',
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowRadius: 5,
   },
-  loginButtonDisabled: {
-    backgroundColor: '#6c7a9c',
-    shadowOpacity: 0.1,
+  loginButtonDisabled: {opacity: 0.6},
+  loginButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 1,
   },
-  loginButtonText: {color: '#fff', fontWeight: 'bold', fontSize: 16},
 });
- 
+
 export default Login;

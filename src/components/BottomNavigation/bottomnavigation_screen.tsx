@@ -36,7 +36,7 @@ const BottomNavigationScreen = () => {
             case 'Orders':
               iconSource = ordersIcon;
               break;
-            case 'Addons':
+            case 'WinZone':
               iconSource = addonsIcon;
               break;
             case 'Account':
@@ -63,7 +63,7 @@ const BottomNavigationScreen = () => {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="MyCars" component={MyCarsScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} />
-      <Tab.Screen name="Addons" component={AddOnsScreen} />
+      <Tab.Screen name="WinZone" component={AddOnsScreen} />
       <Tab.Screen name="Account" component={AccountScreen} />
     </Tab.Navigator>
   );

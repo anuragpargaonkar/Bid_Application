@@ -2154,6 +2154,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-native-community/geolocation@npm:^3.4.0":
+  version: 3.4.0
+  resolution: "@react-native-community/geolocation@npm:3.4.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 4a1a334de5b8345ee5ca9af987718a4cdd0b401b6d024268330c98736eccd0bebf45fd1d4cb396558f429a4670e5b29da0b5b7ebd4e51ca12972d4b08b55d4bc
+  languageName: node
+  linkType: hard
+
 "@react-native/assets-registry@npm:0.79.2":
   version: 0.79.2
   resolution: "@react-native/assets-registry@npm:0.79.2"
@@ -2964,6 +2974,7 @@ __metadata:
     "@react-native-community/cli-platform-android": 18.0.0
     "@react-native-community/cli-platform-ios": 18.0.0
     "@react-native-community/datetimepicker": ^8.4.5
+    "@react-native-community/geolocation": ^3.4.0
     "@react-native/babel-preset": 0.79.2
     "@react-native/eslint-config": 0.79.2
     "@react-native/metro-config": 0.79.2
@@ -2986,6 +2997,7 @@ __metadata:
     react: 19.0.0
     react-native: 0.79.2
     react-native-cli: ^2.0.1
+    react-native-geolocation-service: ^5.3.1
     react-native-linear-gradient: ^2.8.3
     react-native-safe-area-context: ^5.6.1
     react-native-screens: ^4.16.0
@@ -8242,6 +8254,13 @@ __metadata:
   bin:
     react-native: index.js
   checksum: d157dd7392af4dd25db77e31b6394024ce6ab897631adf0ea12ace577f6807a97a826a84ef311b48469b5e8a0d5d6d89bb75acef58bd376ca1977fb9fa3d777a
+  languageName: node
+  linkType: hard
+
+"react-native-geolocation-service@npm:^5.3.1":
+  version: 5.3.1
+  resolution: "react-native-geolocation-service@npm:5.3.1"
+  checksum: 9a625c9f87811933491055fd8cbd1ef46f97fbbe0262714ad1d9aa969a8900dcb4abc47e58fe162400a81bcdee79324dfcc8e631862df9a22d59ac84af9acfde
   languageName: node
   linkType: hard
 

@@ -1,5 +1,5 @@
-// HomeScreen.tsx - WITH AUCTION TIMER & AUTO-REMOVE + FIXED DATETIME FORMAT
-import React, {useState, useEffect, useRef, useCallback, useMemo} from 'react';
+// HomeScreen.tsx - UPDATED WITH DARK NAVY & SOFT LAVENDER + CLICKABLE DEMO NOTIFICATIONS
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,16 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  StatusBar,
+  Animated,
+  Easing,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useWebSocket} from '../../utility/WebSocketConnection';
 import {useRoute, RouteProp} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import LinearGradient from 'react-native-linear-gradient';
 
 interface Car {
   id: string;
@@ -52,6 +56,14 @@ interface LivePriceData {
   auctionEndTime?: string;
 }
 
+interface Notification {
+  id: string;
+  carId: string;
+  message: string;
+  type: 'bid' | 'outbid' | 'won' | 'time';
+  timestamp: number;
+}
+
 type RootStackParamList = {
   Login: undefined;
   Home: {token: string; userId: string; userInfo: any};
@@ -62,7 +74,7 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 
 const TOKEN_KEY = 'auth_token';
 const USER_ID_KEY = 'user_id';
-const AUCTION_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const AUCTION_DURATION_MS = 30 * 60 * 1000;
 
 const HomeScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'LIVE' | 'OCB'>('LIVE');
@@ -70,18 +82,10 @@ const HomeScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [storedToken, setStoredToken] = useState<string | null>(null);
   const [storedUserId, setStoredUserId] = useState<string | null>(null);
-  const [biddingStates, setBiddingStates] = useState<{[key: string]: boolean}>(
-    {},
-  );
-  const [livePrices, setLivePrices] = useState<{[key: string]: LivePriceData}>(
-    {},
-  );
+  const [biddingStates, setBiddingStates] = useState<{[key: string]: boolean}>({});
+  const [livePrices, setLivePrices] = useState<{[key: string]: LivePriceData}>({});
   const [carImageData, setCarImageData] = useState<{[key: string]: string}>({});
-  const [carDetailsData, setCarDetailsData] = useState<{[key: string]: any}>(
-    {},
-  );
-
-  // ✅ Auction timer states
+  const [carDetailsData, setCarDetailsData] = useState<{[key: string]: any}>({});
   const [carAuctionTimes, setCarAuctionTimes] = useState<{
     [key: string]: {start: number; end: number};
   }>({});
@@ -89,22 +93,19 @@ const HomeScreen: React.FC = () => {
     [key: string]: string;
   }>({});
   const [filteredLiveCars, setFilteredLiveCars] = useState<Car[]>([]);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedCar, setSelectedCar] = useState<{
     bidCarId: string;
     price: number;
   } | null>(null);
-  const [bidAmounts, setBidAmounts] = useState<{[bidCarId: string]: string}>(
-    {},
-  );
+  const [bidAmounts, setBidAmounts] = useState<{[bidCarId: string]: string}>({});
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const bidInitializedRef = useRef<string | null>(null);
   const countdownInterval = useRef<NodeJS.Timeout | null>(null);
-
+  const notificationAnim = useRef(new Animated.Value(-100)).current;
   const route = useRoute<HomeScreenRouteProp>();
   const routeParams = route.params;
-
   const {
     liveCars,
     getLiveCars,
@@ -114,179 +115,166 @@ const HomeScreen: React.FC = () => {
     connectionStatus,
   } = useWebSocket();
 
-  // ✅ FIXED: GET DATETIME IN CORRECT FORMAT (YYYY-MM-DDTHH:MM:SS)
+  // Show notification (with animation)
+  const showNotification = useCallback((car: Car, type: 'bid' | 'outbid' | 'won' | 'time') => {
+    const carName = `${car.make || 'Toyota'} ${car.model || 'Innova'} ${car.variant || '2.8 ZX'}`;
+    let message = '';
+    let bgColor = '#262a4f';
+
+    switch (type) {
+      case 'bid':
+        message = `You placed a bid on ${carName} at ₹${(livePrices[car.id]?.price || 0).toLocaleString()}`;
+        bgColor = '#10B981';
+        break;
+      case 'outbid':
+        message = `You've been outbid on ${carName}! New bid: ₹${((livePrices[car.id]?.price || 0) + 5000).toLocaleString()}`;
+        bgColor = '#EF4444';
+        break;
+      case 'won':
+        message = `Congratulations! You won ${carName} for ₹${(livePrices[car.id]?.price || 0).toLocaleString()}`;
+        bgColor = '#8B5CF6';
+        break;
+      case 'time':
+        message = `Only 5 minutes left for ${carName}!`;
+        bgColor = '#F59E0B';
+        break;
+    }
+
+    const newNotif: Notification = {
+      id: `${car.id}-${Date.now()}`,
+      carId: car.id,
+      message,
+      type,
+      timestamp: Date.now(),
+    };
+
+    setNotifications(prev => [newNotif, ...prev.slice(0, 4)]);
+
+    // Animate in
+    notificationAnim.setValue(-100);
+    Animated.timing(notificationAnim, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+
+    // Auto hide after 4 seconds
+    setTimeout(() => {
+      Animated.timing(notificationAnim, {
+        toValue: -100,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setNotifications(prev => prev.filter(n => n.id !== newNotif.id));
+      });
+    }, 4000);
+  }, [livePrices, notificationAnim]);
+
+  // Click notification to show demo
+  const handleNotificationClick = () => {
+    if (filteredLiveCars.length === 0) {
+      Alert.alert('No Cars', 'No live cars to show demo notifications.');
+      return;
+    }
+
+    const randomCar = filteredLiveCars[Math.floor(Math.random() * filteredLiveCars.length)];
+    const types: Array<'bid' | 'outbid' | 'won' | 'time'> = ['bid', 'outbid', 'time', 'won'];
+    const randomType = types[Math.floor(Math.random() * types.length)];
+
+    // Only show "won" if auction is ending
+    if (randomType === 'won' && !countdownTimers[randomCar.id]?.startsWith?.('00:00:')) {
+      showNotification(randomCar, 'bid');
+    } else if (randomType === 'time' && !countdownTimers[randomCar.id]?.startsWith?.('00:05:')) {
+      showNotification(randomCar, 'bid');
+    } else {
+      showNotification(randomCar, randomType);
+    }
+  };
+
   const getCurrentDateTimeForAPI = useCallback((): string => {
     const now = new Date();
-
-    // Get year, month, day
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-
-    // Get hours, minutes, seconds (NO milliseconds)
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-
-    // Format: YYYY-MM-DDTHH:MM:SS (exactly as API expects)
-    const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-
-    console.log('📅 Generated DateTime for API:', dateTimeString);
-    return dateTimeString;
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   }, []);
 
-  // ✅ GET SYSTEM TIMEZONE OFFSET (kept for potential future use)
-  const getTimezoneOffset = useCallback((): string => {
-    const now = new Date();
-    const offset = -now.getTimezoneOffset();
-    const hours = Math.floor(Math.abs(offset) / 60);
-    const minutes = Math.abs(offset) % 60;
-    const sign = offset >= 0 ? '+' : '-';
-    return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(
-      2,
-      '0',
-    )}`;
-  }, []);
-
-  // ✅ PARSE DATETIME TO TIMESTAMP
   const parseDateTime = useCallback((dateTime: any): number | null => {
     if (!dateTime) return null;
-
     try {
-      if (typeof dateTime === 'number') {
-        return dateTime;
-      }
-
+      if (typeof dateTime === 'number') return dateTime;
       if (typeof dateTime === 'string') {
         const parsed = new Date(dateTime).getTime();
-        if (!isNaN(parsed)) {
-          return parsed;
-        }
+        if (!isNaN(parsed)) return parsed;
       }
-
       return null;
     } catch (error) {
-      console.error('Error parsing datetime:', error);
       return null;
     }
   }, []);
 
-  // ✅ FORMAT COUNTDOWN TIMER (HH:MM:SS)
   const formatCountdown = useCallback((milliseconds: number): string => {
     if (milliseconds <= 0) return '00:00:00';
-
     const totalSeconds = Math.floor(milliseconds / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
       2,
       '0',
     )}:${String(seconds).padStart(2, '0')}`;
   }, []);
 
-  // ✅ INITIALIZE AUCTION TIMES WHEN CARS ARE ADDED
   useEffect(() => {
     const now = Date.now();
     const newAuctionTimes: {[key: string]: {start: number; end: number}} = {
       ...carAuctionTimes,
     };
     let hasNewCars = false;
-
     liveCars.forEach(car => {
       if (car.id && !carAuctionTimes[car.id]) {
-        let startTime: number | null = null;
-
-        startTime =
+        let startTime =
           parseDateTime(car.auctionStartTime) ||
           parseDateTime(car.startTime) ||
-          parseDateTime(car.createdAt);
-
-        if (!startTime) {
-          startTime = now;
-          console.log('⚠️ No start time in API data, using current time', {
-            carId: car.id,
-          });
-        }
-
-        let endTime: number | null = null;
-        endTime =
-          parseDateTime(car.auctionEndTime) || parseDateTime(car.endTime);
-
-        if (!endTime) {
-          endTime = startTime + AUCTION_DURATION_MS;
-        }
-
-        newAuctionTimes[car.id] = {
-          start: startTime,
-          end: endTime,
-        };
-
+          parseDateTime(car.createdAt) ||
+          now;
+        let endTime =
+          parseDateTime(car.auctionEndTime) ||
+          parseDateTime(car.endTime) ||
+          startTime + AUCTION_DURATION_MS;
+        newAuctionTimes[car.id] = {start: startTime, end: endTime};
         hasNewCars = true;
-
-        const startDate = new Date(startTime);
-        const endDate = new Date(endTime);
-
-        console.log(`🚗 New car added to auction`, {
-          carId: car.id,
-          startTime: startDate.toLocaleTimeString(),
-          endTime: endDate.toLocaleTimeString(),
-          startTimestamp: startTime,
-          endTimestamp: endTime,
-          duration: `${Math.round((endTime - startTime) / 60000)} minutes`,
-        });
       }
     });
-
-    if (hasNewCars) {
-      setCarAuctionTimes(newAuctionTimes);
-    }
+    if (hasNewCars) setCarAuctionTimes(newAuctionTimes);
   }, [liveCars, carAuctionTimes, parseDateTime]);
 
-  // ✅ UPDATE COUNTDOWN EVERY SECOND & FILTER EXPIRED CARS
   useEffect(() => {
     if (Object.keys(carAuctionTimes).length === 0) return;
-
-    if (countdownInterval.current) {
-      clearInterval(countdownInterval.current);
-    }
-
+    if (countdownInterval.current) clearInterval(countdownInterval.current);
     countdownInterval.current = setInterval(() => {
       const now = Date.now();
       const newTimers: {[key: string]: string} = {};
       const activeCars: Car[] = [];
       const expiredCarIds: string[] = [];
-
       liveCars.forEach(car => {
         if (!car.id) return;
-
         const auctionTime = carAuctionTimes[car.id];
         if (!auctionTime) return;
-
         const remainingMs = auctionTime.end - now;
-
         if (remainingMs > 0) {
           newTimers[car.id] = formatCountdown(remainingMs);
           activeCars.push(car);
         } else {
           expiredCarIds.push(car.id);
-
-          const startDate = new Date(auctionTime.start);
-          const endDate = new Date(auctionTime.end);
-
-          console.log(`⏰ Car auction expired and removed`, {
-            carId: car.id,
-            startedAt: startDate.toLocaleTimeString(),
-            expiredAt: endDate.toLocaleTimeString(),
-            removedAt: new Date(now).toLocaleTimeString(),
-          });
         }
       });
-
       setCountdownTimers(newTimers);
       setFilteredLiveCars(activeCars);
-
       if (expiredCarIds.length > 0) {
         setCarAuctionTimes(prev => {
           const updated = {...prev};
@@ -295,20 +283,15 @@ const HomeScreen: React.FC = () => {
         });
       }
     }, 1000);
-
     return () => {
-      if (countdownInterval.current) {
-        clearInterval(countdownInterval.current);
-      }
+      if (countdownInterval.current) clearInterval(countdownInterval.current);
     };
   }, [liveCars, carAuctionTimes, formatCountdown]);
 
   useEffect(() => {
     loadStoredAuthData();
     return () => {
-      if (countdownInterval.current) {
-        clearInterval(countdownInterval.current);
-      }
+      if (countdownInterval.current) clearInterval(countdownInterval.current);
     };
   }, []);
 
@@ -320,9 +303,7 @@ const HomeScreen: React.FC = () => {
       ]);
       if (token) setStoredToken(token);
       if (userId) setStoredUserId(userId);
-    } catch (error) {
-      console.error('Error loading auth data:', error);
-    }
+    } catch (error) {}
   };
 
   const token = routeParams?.token || storedToken;
@@ -330,9 +311,7 @@ const HomeScreen: React.FC = () => {
   const userInfo = routeParams?.userInfo;
 
   useEffect(() => {
-    if (token && connectionStatus === 'disconnected') {
-      connectWebSocket(token);
-    }
+    if (token && connectionStatus === 'disconnected') connectWebSocket(token);
     if (
       isConnected &&
       connectionStatus === 'connected' &&
@@ -354,9 +333,7 @@ const HomeScreen: React.FC = () => {
     if (filteredLiveCars.length > 0) {
       const interval = setInterval(() => {
         filteredLiveCars.forEach(car => {
-          if (car.id) {
-            fetchLivePrice(car.id);
-          }
+          if (car.id) fetchLivePrice(car.id);
         });
       }, 3000);
       return () => clearInterval(interval);
@@ -369,7 +346,6 @@ const HomeScreen: React.FC = () => {
       if (isConnected) getLiveCars();
       else if (token) connectWebSocket(token);
     } catch (error) {
-      console.error('Refresh error:', error);
     } finally {
       setTimeout(() => setRefreshing(false), 2000);
     }
@@ -393,74 +369,44 @@ const HomeScreen: React.FC = () => {
         price,
         remainingTime: data?.object?.remainingTime || '',
         timeLeft: data?.object?.timeLeft || '',
-        auctionStartTime:
+        auctionArtifactStartTime:
           data?.object?.auctionStartTime || data?.object?.startTime,
         auctionEndTime: data?.object?.auctionEndTime || data?.object?.endTime,
       };
-      setLivePrices(prev => ({
-        ...prev,
-        [bidCarId]: livePriceData,
-      }));
+      setLivePrices(prev => ({...prev, [bidCarId]: livePriceData}));
       return livePriceData;
     } catch (error) {
-      console.error(`❌ Failed to fetch live price for ${bidCarId}:`, error);
       return null;
     }
   };
 
   const refreshAllCarPrices = async () => {
-    console.log('🔄 Refreshing all car prices...');
     const promises = filteredLiveCars.map(car => {
-      if (car.id) {
-        return fetchLivePrice(car.id);
-      }
+      if (car.id) return fetchLivePrice(car.id);
       return Promise.resolve(null);
     });
     await Promise.all(promises);
-    console.log('✅ All car prices refreshed');
   };
 
-  // ✅ ENHANCED IMAGE FETCH FROM SECOND CODE
   const fetchCarImageAndDetails = async (
     beadingCarId: string,
     bidCarId: string,
   ) => {
     try {
-      console.log('🔍 Starting fetch for:', {beadingCarId, bidCarId});
-
-      // 1️⃣ Fetch image using beadingCarId
       const imageUrl = `https://caryanamindia.prodchunca.in.net/uploadFileBidCar/getByBidCarID?beadingCarId=${beadingCarId}`;
-      console.log('📡 Fetching image from:', imageUrl);
-
       const imageResponse = await fetch(imageUrl);
-      console.log('📡 Image response status:', imageResponse.status);
-
       const imageText = await imageResponse.text();
-      console.log(
-        '📡 Image response text (first 1000 chars):',
-        imageText.substring(0, 1000),
-      );
-
-      // ✅ Parse the response safely
       let imageDataArray: any[] = [];
       try {
         const parsed = JSON.parse(imageText);
-
-        // Some APIs wrap data in an "object" property
         if (Array.isArray(parsed)) {
           imageDataArray = parsed;
         } else if (Array.isArray(parsed?.object)) {
           imageDataArray = parsed.object;
         } else if (Array.isArray(parsed?.data)) {
           imageDataArray = parsed.data;
-        } else {
-          console.warn('⚠️ Unexpected image response structure:', parsed);
         }
-      } catch (err) {
-        console.error('❌ Failed to parse image response JSON:', err);
-      }
-
-      // ✅ Find the cover image for this car
+      } catch (err) {}
       const coverImageData = imageDataArray.find(
         item =>
           (item.documentType?.toLowerCase() === 'coverimage' ||
@@ -468,93 +414,32 @@ const HomeScreen: React.FC = () => {
             item.subtype?.toLowerCase() === 'coverimage') &&
           String(item.beadingCarId) === String(beadingCarId),
       );
-
-      console.log('🖼️ Cover image object:', coverImageData);
-
-      // 2️⃣ Fetch car details using bidCarId
       const carIdUrl = `https://caryanamindia.prodchunca.in.net/BeadingCarController/getByBidCarId/${bidCarId}`;
-      console.log('📡 Fetching car details from:', carIdUrl);
-
       const carIdResponse = await fetch(carIdUrl);
-      console.log('📡 Car details response status:', carIdResponse.status);
-
       const carIdText = await carIdResponse.text();
-      console.log(
-        '📡 Car details response text (first 100 chars):',
-        carIdText.substring(0, 100),
-      );
-
       let carIdData: any = null;
       try {
         carIdData = carIdText ? JSON.parse(carIdText) : null;
-        console.log('✅ Parsed car details data:', carIdData);
-      } catch (e) {
-        console.warn('⚠️ Failed to parse car details response:', carIdText);
-      }
-
-      // ✅ Extract and store the correct image link
+      } catch (e) {}
       const imageLink = coverImageData?.documentLink;
-
-      console.log('📸 Image link extracted:', imageLink);
-
       if (imageLink) {
-        console.log('💾 Storing image for IDs:', {beadingCarId, bidCarId});
-        setCarImageData(prev => {
-          const newData = {
-            ...prev,
-            [beadingCarId]: imageLink,
-          };
-          console.log('💾 Updated carImageData:', newData);
-          return newData;
-        });
-      } else {
-        console.warn('⚠️ No cover image found for beadingCarId:', beadingCarId);
+        setCarImageData(prev => ({...prev, [beadingCarId]: imageLink}));
       }
-
-      // Store car details
       if (carIdData) {
-        setCarDetailsData(prev => ({
-          ...prev,
-          [bidCarId]: carIdData || {},
-        }));
+        setCarDetailsData(prev => ({...prev, [bidCarId]: carIdData || {}}));
       }
-
       fetchLivePrice(bidCarId);
-    } catch (error: any) {
-      console.error('❌ Fetch failed for car', beadingCarId, ':', error);
-    }
+    } catch (error: any) {}
   };
 
-  // ✅ FETCH IMAGES AND DETAILS FOR ALL CARS
   useEffect(() => {
-    console.log(
-      '🚗 filteredLiveCars changed, length:',
-      filteredLiveCars.length,
-    );
-    console.log('🗂️ Current carImageData keys:', Object.keys(carImageData));
-    console.log('🗂️ Current carDetailsData keys:', Object.keys(carDetailsData));
-
     filteredLiveCars.forEach(car => {
       const beadingId = car.beadingCarId || car.id;
       const bidId = car.bidCarId || car.id;
-
       const hasImage = !!(carImageData[bidId] || carImageData[beadingId]);
       const hasDetails = !!carDetailsData[bidId];
-
-      console.log('🚗 Checking car:', {
-        carId: car.id,
-        beadingId,
-        bidId,
-        hasImage,
-        hasDetails,
-      });
-
-      // Fetch if missing either image or details
       if (!hasImage || !hasDetails) {
-        console.log('🔄 Fetching data for car:', {beadingId, bidId});
         fetchCarImageAndDetails(beadingId, bidId);
-      } else {
-        console.log('✅ Car data already exists, skipping fetch');
       }
     });
   }, [filteredLiveCars, carImageData, carDetailsData]);
@@ -563,26 +448,19 @@ const HomeScreen: React.FC = () => {
     try {
       const priceData = await fetchLivePrice(bidCarId);
       const currentPrice = priceData?.price ?? 0;
-
       bidInitializedRef.current = null;
-
       setSelectedCar({bidCarId, price: currentPrice});
-
       const initialBid = (currentPrice + 2000).toString();
       setBidAmounts(prev => ({...prev, [bidCarId]: initialBid}));
       bidInitializedRef.current = bidCarId;
-
       setModalVisible(true);
-    } catch (error) {
-      console.error('Error opening bid modal:', error);
-    }
+    } catch (error) {}
   };
 
   useEffect(() => {
     if (modalVisible && selectedCar) {
       const livePriceData = livePrices[selectedCar.bidCarId];
       const currentPrice = livePriceData?.price ?? 0;
-
       if (currentPrice > 0 && selectedCar.price !== currentPrice) {
         setSelectedCar(prev => (prev ? {...prev, price: currentPrice} : null));
       }
@@ -590,9 +468,7 @@ const HomeScreen: React.FC = () => {
   }, [modalVisible, livePrices[selectedCar?.bidCarId || '']?.price]);
 
   useEffect(() => {
-    if (!modalVisible) {
-      bidInitializedRef.current = null;
-    }
+    if (!modalVisible) bidInitializedRef.current = null;
   }, [modalVisible]);
 
   const handleBidInputChange = (text: string) => {
@@ -607,10 +483,11 @@ const HomeScreen: React.FC = () => {
       const currentPrice = livePriceData?.price ?? selectedCar.price ?? 0;
       const current =
         parseInt(bidAmounts[selectedCar.bidCarId] || '0') || currentPrice;
-
       if (current - 2000 > currentPrice) {
-        const newVal = (current - 2000).toString();
-        setBidAmounts(prev => ({...prev, [selectedCar.bidCarId]: newVal}));
+        setBidAmounts(prev => ({
+          ...prev,
+          [selectedCar.bidCarId]: (current - 2000).toString(),
+        }));
       }
     }
   };
@@ -621,8 +498,10 @@ const HomeScreen: React.FC = () => {
       const currentPrice = livePriceData?.price ?? selectedCar.price ?? 0;
       const current =
         parseInt(bidAmounts[selectedCar.bidCarId] || '0') || currentPrice;
-      const newVal = (current + 2000).toString();
-      setBidAmounts(prev => ({...prev, [selectedCar.bidCarId]: newVal}));
+      setBidAmounts(prev => ({
+        ...prev,
+        [selectedCar.bidCarId]: (current + 2000).toString(),
+      }));
     }
   };
 
@@ -631,19 +510,9 @@ const HomeScreen: React.FC = () => {
       Alert.alert('Error', 'Please login to place a bid.');
       return;
     }
-
     const livePriceData = livePrices[selectedCar.bidCarId];
     const currentPrice = livePriceData?.price ?? selectedCar.price ?? 0;
     const bidValue = parseInt(bidAmounts[selectedCar.bidCarId] || '0');
-
-    console.log('💰 Placing bid:', {
-      bidValue,
-      currentPrice,
-      bidCarId: selectedCar.bidCarId,
-      userId,
-      token: token?.substring(0, 20) + '...',
-    });
-
     if (isNaN(bidValue) || bidValue <= currentPrice) {
       Alert.alert(
         'Invalid Bid',
@@ -651,71 +520,36 @@ const HomeScreen: React.FC = () => {
       );
       return;
     }
-
     setBiddingStates(prev => ({...prev, [selectedCar.bidCarId]: true}));
-
     try {
-      // ✅ Get current datetime in API format
       const currentDateTime = getCurrentDateTimeForAPI();
-
-      // ✅ TRY MULTIPLE REQUEST FORMATS TO DEBUG
-      
-      // Format 1: Original format with bidCarId in URL
       const requestBody = {
         userId: Number(userId),
         bidCarId: Number(selectedCar.bidCarId),
         dateTime: currentDateTime,
         amount: bidValue,
       };
-
-      console.log('📤 Request body:', requestBody);
-      console.log('📤 DateTime format:', currentDateTime);
-      console.log('📤 userId type:', typeof Number(userId));
-      console.log('📤 bidCarId type:', typeof Number(selectedCar.bidCarId));
-      console.log('📤 amount type:', typeof bidValue);
-      
-      // ✅ Check if token is valid
-      if (!token || token.trim() === '') {
+      if (!token || token.trim() === '')
         throw new Error('Invalid authentication token');
-      }
-
       const bidUrl = `https://caryanamindia.prodchunca.in.net/Bid/placeBid?bidCarId=${selectedCar.bidCarId}`;
-      console.log('📤 Full Request URL:', bidUrl);
-
       const response = await fetch(bidUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
-
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response ok:', response.ok);
-      console.log(
-        '📥 Response headers:',
-        JSON.stringify([...response.headers.entries()]),
-      );
-
       let data = null;
       const text = await response.text();
-      console.log('📥 Response text:', text);
-      console.log('📥 Response text length:', text?.length || 0);
-
       try {
         data = text ? JSON.parse(text) : null;
-        console.log('📥 Parsed data:', data);
-      } catch (parseError) {
-        console.error('❌ JSON parse error:', parseError);
-        console.log('📥 Raw response:', text?.substring(0, 200));
-      }
-
+      } catch (parseError) {}
       if (response.ok) {
         setModalVisible(false);
         Alert.alert(
-          'Bid Placed Successfully! 🎉',
+          'Bid Placed Successfully!',
           `Your bid of ₹${bidValue.toLocaleString()} has been placed.`,
           [
             {
@@ -723,153 +557,56 @@ const HomeScreen: React.FC = () => {
               onPress: async () => {
                 await refreshAllCarPrices();
                 getLiveCars();
+                const car = filteredLiveCars.find(c => c.id === selectedCar.bidCarId);
+                if (car) showNotification(car, 'bid');
               },
             },
           ],
         );
       } else {
-        let errorMessage = '';
-        let debugInfo = '';
-
-        if (response.status === 500) {
-          // ✅ Enhanced 500 error handling with possible causes
-          if (!text || text.trim() === '') {
-            errorMessage = 'Server Error (500)';
-            debugInfo = 
-              'Possible causes:\n\n' +
-              '1. Token expired - Try logging out and back in\n' +
-              '2. Auction ended - Car may no longer be available\n' +
-              '3. Insufficient balance - Check your account\n' +
-              '4. Server issue - Try again in a few moments\n' +
-              '5. Bid increment issue - Try a higher amount\n\n' +
-              `Details:\n` +
-              `• Bid Amount: ₹${bidValue.toLocaleString()}\n` +
-              `• Current Price: ₹${currentPrice.toLocaleString()}\n` +
-              `• Car ID: ${selectedCar.bidCarId}\n` +
-              `• Time: ${currentDateTime}`;
-          } else {
-            errorMessage = data?.message || data?.error || text || 'Server error';
-            debugInfo = 'Server returned an error. Please try again or contact support.';
-          }
-        } else if (response.status === 400) {
-          errorMessage =
-            data?.detail ||
-            data?.message ||
-            data?.error ||
-            'Invalid request format';
-          debugInfo = 'The request was not accepted by the server. Please check all values.';
-        } else if (response.status === 401) {
-          errorMessage = 'Authentication failed';
-          debugInfo = 'Your session may have expired. Please log in again.';
-        } else if (response.status === 403) {
-          errorMessage = 'Access denied';
-          debugInfo = 'You do not have permission to place this bid.';
-        } else {
-          errorMessage = `Server Error ${response.status}`;
-          debugInfo = data?.message || data?.error || 'Unknown error occurred';
-        }
-
-        console.error('❌ Bid failed:', {
-          status: response.status,
-          message: errorMessage,
-          debugInfo,
-          requestBody,
-          data,
-          text: text?.substring(0, 200),
-        });
-
-        Alert.alert(
-          errorMessage,
-          debugInfo,
-          [
-            {
-              text: 'Refresh & Retry',
-              onPress: async () => {
-                await refreshAllCarPrices();
-                getLiveCars();
-              },
-            },
-            {text: 'Close', style: 'cancel'},
-          ],
-        );
-      }
-    } catch (error: any) {
-      console.error('❌ Place Bid Error:', {
-        message: error?.message,
-        name: error?.name,
-        stack: error?.stack,
-      });
-
-      Alert.alert(
-        'Network Error',
-        `Unable to connect to server.\n\nError: ${
-          error?.message || 'Unknown error'
-        }\n\nPlease check your connection and try again.`,
-        [
+        let errorMessage = 'Server Error';
+        let debugInfo = 'Unable to place bid. Please try again.';
+        Alert.alert(errorMessage, debugInfo, [
           {
-            text: 'Retry',
-            onPress: () => handlePlaceBid(),
+            text: 'Refresh & Retry',
+            onPress: async () => {
+              await refreshAllCarPrices();
+              getLiveCars();
+            },
           },
           {text: 'Close', style: 'cancel'},
-        ],
-      );
+        ]);
+      }
+    } catch (error: any) {
+      Alert.alert('Network Error', 'Unable to connect to server.', [
+        {text: 'Retry', onPress: () => handlePlaceBid()},
+        {text: 'Close', style: 'cancel'},
+      ]);
     } finally {
       setBiddingStates(prev => ({...prev, [selectedCar.bidCarId]: false}));
     }
   };
 
   const renderCarCard = (car: Car, idx: number) => {
-    // ✅ Try multiple ID sources with fallbacks
     const carId = car.id || `car-${idx}`;
     const beadingId = car.beadingCarId || carId;
     const bidId = car.bidCarId || carId;
-
-    // ✅ Try to get image from either ID
     const imageUrl =
       carImageData[carId] ||
       carImageData[beadingId] ||
       carImageData[bidId] ||
       car.imageUrl ||
       'https://photos.caryanamindia.com/1453c850-c6a4-4d46-ab36-6c4dbab27f4c-crysta%201%20-%20Copy.jpg';
-
     const carDetails = carDetailsData[carId] || carDetailsData[bidId];
     const livePriceData = livePrices[carId];
     const currentBid =
       livePriceData?.price ?? car.currentBid ?? carDetails?.price ?? 0;
-
-    // ✅ Use countdown timer from state
     const timeLeft = countdownTimers[carId] || '00:30:00';
     const isBidding = biddingStates[carId] || false;
 
-    console.log('🖼️ Rendering car:', {
-      carId,
-      beadingId,
-      bidId,
-      hasImage: !!(
-        carImageData[carId] ||
-        carImageData[beadingId] ||
-        carImageData[bidId]
-      ),
-      imageUrl: imageUrl.substring(0, 60),
-    });
-
     return (
       <View key={carId} style={styles.card}>
-        <Image
-          source={{uri: imageUrl}}
-          style={styles.carImage}
-          defaultSource={require('../../assets/images/car1.png')}
-          onError={error => {
-            console.error(
-              '❌ Image load error for car',
-              carId,
-              error.nativeEvent,
-            );
-          }}
-          onLoad={() => {
-            console.log('✅ Image loaded successfully for car', carId);
-          }}
-        />
+        <Image source={{uri: imageUrl}} style={styles.carImage} />
         <TouchableOpacity style={styles.heartIcon}>
           <Ionicons name="heart-outline" size={24} color="#fff" />
         </TouchableOpacity>
@@ -878,6 +615,7 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.scrapText}>SCRAP CAR</Text>
           </View>
         )}
+
         <View style={styles.cardDetails}>
           {carDetails && (
             <Text style={styles.carName}>
@@ -886,7 +624,11 @@ const HomeScreen: React.FC = () => {
             </Text>
           )}
           <View style={styles.locationRow}>
-            <MaterialCommunityIcons name="map-marker" size={14} color="#555" />
+            <MaterialCommunityIcons
+              name="map-marker"
+              size={14}
+              color="#a9acd6"
+            />
             <Text style={styles.locationTextSmall}>
               {carDetails?.city || car.city} •{' '}
               {carDetails?.registration || car.rtoCode}
@@ -897,37 +639,42 @@ const HomeScreen: React.FC = () => {
             {carDetails?.ownerSerial || car.owner} Owner •{' '}
             {carDetails?.fuelType || car.fuelType}
           </Text>
+
           <View style={styles.bidSection}>
             <View>
               <Text style={styles.highestBid}>
-                {livePriceData ? 'Live Bid 🔴' : 'Highest Bid'}
+                {livePriceData ? 'Live Bid [Red Dot]' : 'Highest Bid'}
               </Text>
               <Text style={styles.bidAmount}>
                 ₹{currentBid.toLocaleString()}
               </Text>
             </View>
             <View style={styles.timerContainer}>
-              <Text style={styles.timeRemaining}>Time Left:</Text>
+              <Text style={styles.timeRemaining}>[Clock] Time Left</Text>
               <View style={styles.timerBox}>
                 <Text style={styles.timerText}>{timeLeft}</Text>
               </View>
             </View>
           </View>
+
           <TouchableOpacity
-            style={[
-              styles.placeBidButton,
-              isBidding && styles.placeBidButtonDisabled,
-            ]}
             onPress={() => openBidModal(carId)}
-            disabled={isBidding}>
-            {isBidding ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Text style={styles.placeBidText}>Place Bid</Text>
-                <Ionicons name="arrow-forward" size={16} color="#fff" />
-              </>
-            )}
+            disabled={isBidding}
+            activeOpacity={0.8}>
+            <View
+              style={[
+                styles.placeBidButton,
+                isBidding && styles.placeBidButtonDisabled,
+              ]}>
+              {isBidding ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.placeBidText}>Place Bid</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#fff" />
+                </>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -944,13 +691,12 @@ const HomeScreen: React.FC = () => {
         <Text style={[styles.tabText, active && styles.activeTabText]}>
           {tab}
         </Text>
-        <Text
-          style={[
-            styles.tabCount,
-            active ? styles.liveCount : styles.defaultCount,
-          ]}>
-          {count}
-        </Text>
+        <View
+          style={[styles.tabCountBadge, active && styles.activeTabCountBadge]}>
+          <Text style={[styles.tabCount, active && styles.activeTabCountText]}>
+            {count}
+          </Text>
+        </View>
         {active && <View style={styles.activeTabIndicator} />}
       </TouchableOpacity>
     );
@@ -958,110 +704,158 @@ const HomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.appContainer}>
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.location}>
+      <StatusBar barStyle="light-content" backgroundColor="#262a4f" />
+      <LinearGradient
+        colors={['#262a4f', '#353a65', '#262a4f']}
+        style={styles.gradientBackground}>
+
+        {/* Clickable Notification Banner */}
+        {notifications.length > 0 && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={handleNotificationClick}
+            style={[
+              styles.notificationBanner,
+              {
+                backgroundColor: notifications[0].type === 'bid' ? '#10B981' :
+                                 notifications[0].type === 'outbid' ? '#EF4444' :
+                                 notifications[0].type === 'won' ? '#8B5CF6' : '#F59E0B',
+                transform: [{ translateY: notificationAnim }],
+              },
+            ]}>
             <MaterialCommunityIcons
-              name="map-marker"
-              size={16}
-              color="#888"
-              style={{marginRight: 2}}
+              name={
+                notifications[0].type === 'bid' ? 'check-circle' :
+                notifications[0].type === 'outbid' ? 'alert' :
+                notifications[0].type === 'won' ? 'trophy' : 'clock-alert'
+              }
+              size={20}
+              color="#fff"
+              style={{ marginRight: 8 }}
             />
-            <Text style={styles.rtoText}>RTO</Text>
-            <Text style={styles.locationText}>MH</Text>
-            <Ionicons name="chevron-down-outline" size={16} color="#000" />
+            <Text style={styles.notificationText}>{notifications[0].message}</Text>
+            <Ionicons name="chevron-down" size={18} color="#fff" style={{ marginLeft: 8 }} />
           </TouchableOpacity>
-          <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={20} color="#aaa" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Make, model, year, Appt. id"
-              placeholderTextColor="#aaa"
-            />
-          </View>
-          <TouchableOpacity style={styles.buyBasicButton}>
-            <Text style={styles.buyBasicText}>Buy{'\n'}Basic</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
-        <ScrollView
-          style={styles.scrollViewContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#007bff']}
-            />
-          }
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.tabs}>
-            {renderTab('LIVE', filteredLiveCars.length)}
-            {renderTab('OCB', 0)}
-          </View>
-
-          <View style={styles.banner}>
-            <View>
-              <Text style={styles.bannerTitle}>New launch</Text>
-              <Text style={styles.bannerDesc}>
-                Get used car loan for your customers{'\n'}Instant valuation |
-                100% digital
-              </Text>
-              <TouchableOpacity style={styles.exploreBtn}>
-                <Text style={styles.exploreText}>Explore →</Text>
-              </TouchableOpacity>
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View style={styles.profileSection}>
+              <Image
+                source={{
+                  uri: userInfo?.profileImage || 'https://i.pravatar.cc/100',
+                }}
+                style={styles.profileImage}
+              />
+              <View>
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-sharp" size={14} color="#a9acd6" />
+                  <Text style={styles.locationLabel}>London, Nigeria</Text>
+                  <Ionicons name="chevron-down" size={14} color="#a9acd6" />
+                </View>
+              </View>
             </View>
-            <Image
-              source={require('../../assets/images/car3.png')}
-              style={styles.bannerImage}
-            />
-          </View>
-
-          <View style={styles.liveCarsHeaderContainer}>
-            <Text style={styles.liveCarsHeader}>
-              Live Cars{' '}
-              {filteredLiveCars.length > 0
-                ? `(${filteredLiveCars.length})`
-                : ''}
-            </Text>
-            <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-              <Ionicons name="refresh" size={20} color="#007bff" />
+            <TouchableOpacity style={styles.notificationIcon} onPress={handleNotificationClick}>
+              <Ionicons
+                name="notifications-outline"
+                size={26}
+                color="#a9acd6"
+              />
+              <View style={styles.notificationBadge} />
             </TouchableOpacity>
           </View>
-
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#007bff" />
-              <Text style={styles.loadingText}>
-                {connectionStatus === 'connecting'
-                  ? 'Connecting...'
-                  : 'Loading...'}
-              </Text>
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={20} color="#262a4f" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search auction"
+                placeholderTextColor="#999"
+              />
             </View>
-          ) : filteredLiveCars.length > 0 ? (
-            filteredLiveCars.map(renderCarCard)
-          ) : (
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="car-off" size={60} color="#ccc" />
-              <Text style={styles.emptyText}>No live cars available</Text>
-              <Text style={styles.emptySubtext}>
-                {isConnected
-                  ? 'No cars currently in auction'
-                  : 'Check connection and retry'}
-              </Text>
-              <TouchableOpacity
-                onPress={handleRetry}
-                style={styles.retryButton}>
-                <Text style={styles.retryText}>
-                  {isConnected ? 'Refresh' : 'Reconnect'}
-                </Text>
+            <View style={styles.filterButton}>
+              <TouchableOpacity>
+                <Ionicons name="options" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
-          )}
-
-          <View style={{height: 100}} />
-        </ScrollView>
-      </View>
-
+          </View>
+        </View>
+        <View style={styles.whiteContentArea}>
+          <ScrollView
+            style={styles.scrollViewContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#a9acd6']}
+              />
+            }
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.tabs}>
+              {renderTab('LIVE', filteredLiveCars.length)}
+              {renderTab('OCB', 0)}
+            </View>
+            <View style={styles.banner}>
+              <View style={{flex: 1}}>
+                <View style={styles.newLaunchBadge}>
+                  <Text style={styles.bannerTitle}>New launch</Text>
+                </View>
+                <Text style={styles.bannerDesc}>
+                  Get used car loan for your customers{'\n'}Instant valuation |
+                  100% digital
+                </Text>
+                <TouchableOpacity activeOpacity={0.8}>
+                  <View style={styles.exploreBtn}>
+                    <Text style={styles.exploreText}>Explore</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+              <Image
+                source={require('../../assets/images/car3.png')}
+                style={styles.bannerImage}
+              />
+            </View>
+            <View style={styles.liveCarsHeaderContainer}>
+              <View>
+                <Text style={styles.liveCarsHeader}>Live Cars</Text>
+                {filteredLiveCars.length > 0 && (
+                  <Text style={styles.liveCarsSubtext}>
+                    {filteredLiveCars.length} cars available
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={onRefresh} activeOpacity={0.7}>
+                <View style={styles.refreshGradient}>
+                  <Ionicons name="refresh" size={18} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            </View>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#a9acd6" />
+                <Text style={styles.loadingText}>Loading cars...</Text>
+              </View>
+            ) : filteredLiveCars.length > 0 ? (
+              filteredLiveCars.map(renderCarCard)
+            ) : (
+              <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons
+                  name="car-off"
+                  size={60}
+                  color="#D1D5DB"
+                />
+                <Text style={styles.emptyText}>No live cars available</Text>
+                <TouchableOpacity onPress={handleRetry} activeOpacity={0.8}>
+                  <View style={styles.retryButton}>
+                    <Text style={styles.retryText}>Retry</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+            <View style={{height: 100}} />
+          </ScrollView>
+        </View>
+      </LinearGradient>
       <Modal
         animationType="slide"
         transparent={true}
@@ -1069,17 +863,17 @@ const HomeScreen: React.FC = () => {
         onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Place Your Bid</Text>
-
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Place Your Bid</Text>
+            </View>
             <View style={styles.amountContainer}>
               <Text style={styles.amountLabel}>Your Bid Amount</Text>
               <View style={styles.bidInputContainer}>
-                <TouchableOpacity
-                  style={styles.adjustButton}
-                  onPress={handleDecreaseBid}>
-                  <Text style={styles.adjustButtonText}>-</Text>
+                <TouchableOpacity onPress={handleDecreaseBid}>
+                  <View style={styles.adjustButtonMinus}>
+                    <Text style={styles.adjustButtonText}>-</Text>
+                  </View>
                 </TouchableOpacity>
-
                 <TextInput
                   style={styles.bidInput}
                   value={selectedCar ? bidAmounts[selectedCar.bidCarId] : ''}
@@ -1087,50 +881,48 @@ const HomeScreen: React.FC = () => {
                   keyboardType="numeric"
                   placeholder="Enter amount"
                 />
-
-                <TouchableOpacity
-                  style={styles.adjustButton}
-                  onPress={handleIncreaseBid}>
-                  <Text style={styles.adjustButtonText}>+</Text>
+                <TouchableOpacity onPress={handleIncreaseBid}>
+                  <View style={styles.adjustButtonPlus}>
+                    <Text style={styles.adjustButtonText}>+</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
-
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={() => setModalVisible(false)}>
                 <Text style={styles.cancelButtonText}>CANCEL</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={styles.confirmButton}
                 onPress={handlePlaceBid}
                 disabled={biddingStates[selectedCar?.bidCarId || '']}>
-                {biddingStates[selectedCar?.bidCarId || ''] ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>CONFIRM</Text>
-                )}
+                <View style={styles.confirmButton}>
+                  {biddingStates[selectedCar?.bidCarId || ''] ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>CONFIRM BID</Text>
+                  )}
+                </View>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
       <View style={styles.warningFixedContainer}>
         <View style={styles.warningIconText}>
           <MaterialCommunityIcons
             name="wallet-outline"
-            size={24}
+            size={26}
             color="#fff"
-            style={{marginRight: 8}}
+            style={{marginRight: 10}}
           />
-          <Text style={styles.warningText}>
-            <Text style={{fontWeight: '700'}}>Low Account Balance</Text>
-            {'\n'}
-            Account balance below ₹10,000. Deposit to continue bidding.
-          </Text>
+          <View style={{flex: 1}}>
+            <Text style={styles.warningTitle}>Low Account Balance</Text>
+            <Text style={styles.warningText}>
+              Account balance below ₹10,000. Deposit to continue bidding.
+            </Text>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -1138,322 +930,466 @@ const HomeScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#fff'},
-  appContainer: {flex: 1},
-  scrollViewContent: {flex: 1},
-  topBar: {
+  safeArea: {flex: 1, backgroundColor: '#262a4f'},
+  gradientBackground: {flex: 1},
+  header: {paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20},
+  headerTop: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    paddingRight: 5,
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  location: {flexDirection: 'row', alignItems: 'center'},
-  rtoText: {fontSize: 14, color: '#888', marginRight: 2},
-  locationText: {fontSize: 16, fontWeight: '700', marginHorizontal: 2},
+  profileSection: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  profileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 3,
+    borderColor: '#a9acd6',
+  },
+  locationRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  locationLabel: {color: '#a9acd6', fontSize: 13, fontWeight: '600'},
+  notificationIcon: {position: 'relative'},
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#262a4f',
+  },
+  searchContainer: {flexDirection: 'row', gap: 12},
   searchBar: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#f2f2f2',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginHorizontal: 10,
     alignItems: 'center',
-    height: 36,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
   },
-  searchInput: {flex: 1, fontSize: 14, marginLeft: 5, paddingVertical: 0},
-  buyBasicButton: {
-    backgroundColor: '#7b3aed',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignItems: 'center',
-  },
-  buyBasicText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 10,
-    lineHeight: 12,
-    textAlign: 'center',
-  },
-  connectionStatus: {
-    flexDirection: 'row',
+  searchInput: {flex: 1, color: '#1F2937', fontSize: 15, fontWeight: '500'},
+  filterButton: {
+    borderRadius: 16,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    backgroundColor: '#f5f5f5',
-    margin: 10,
-    borderRadius: 8,
+    backgroundColor: '#a9acd6',
   },
-  statusDot: {width: 8, height: 8, borderRadius: 4, marginRight: 6},
-  statusText: {fontSize: 12, color: '#666', fontWeight: '500'},
-  retrySmallBtn: {
-    marginLeft: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#007bff',
-    borderRadius: 4,
+  whiteContentArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fc',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
   },
-  retrySmallText: {color: '#fff', fontSize: 10, fontWeight: '600'},
-  userInfo: {
-    backgroundColor: '#e7f3ff',
-    padding: 10,
-    margin: 10,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007bff',
-  },
-  userInfoText: {
-    fontSize: 12,
-    color: '#0066cc',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  flowStatusButton: {
-    backgroundColor: '#666',
-    padding: 10,
-    borderRadius: 8,
-    alignSelf: 'center',
-    margin: 10,
-  },
-  flowStatusText: {color: '#fff', fontSize: 12, fontWeight: '600'},
+  scrollViewContent: {flex: 1},
   tabs: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     marginVertical: 10,
+    paddingHorizontal: 20,
+    gap: 40,
   },
   tabContainer: {alignItems: 'center'},
-  tabText: {fontSize: 16, fontWeight: '600', color: '#888'},
-  activeTabText: {color: '#007bff'},
-  tabCount: {fontSize: 12, fontWeight: '700', marginTop: 2},
-  liveCount: {color: '#007bff'},
-  defaultCount: {color: '#aaa'},
+  tabText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  activeTabText: {color: '#262a4f'},
+  tabCountBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginTop: 6,
+  },
+  activeTabCountBadge: {backgroundColor: '#e6e8f3'},
+  tabCount: {fontSize: 13, fontWeight: '800', color: '#6B7280'},
+  activeTabCountText: {color: '#262a4f'},
   activeTabIndicator: {
-    height: 3,
-    backgroundColor: '#007bff',
-    marginTop: 4,
-    width: 40,
+    height: 4,
+    marginTop: 8,
+    width: 50,
     borderRadius: 2,
+    backgroundColor: '#a9acd6',
   },
   banner: {
-    backgroundColor: '#eaf2ff',
-    marginHorizontal: 10,
-    padding: 15,
-    borderRadius: 10,
+    marginHorizontal: 16,
+    padding: 20,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#e6e8f3',
+    shadowColor: '#262a4f',
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  bannerTitle: {fontSize: 14, fontWeight: '700', color: '#007bff'},
-  bannerDesc: {fontSize: 12, color: '#333', marginVertical: 4},
-  exploreBtn: {
-    backgroundColor: '#007bff',
+  newLaunchBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginTop: 4,
+    marginBottom: 10,
+    backgroundColor: '#262a4f',
   },
-  exploreText: {color: '#fff', fontSize: 12, fontWeight: '600'},
-  bannerImage: {width: 100, height: 92, resizeMode: 'contain', marginLeft: 20},
+  bannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#a9acd6',
+    letterSpacing: 0.5,
+  },
+  bannerDesc: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginVertical: 8,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  exploreBtn: {
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: '#a9acd6',
+    shadowColor: '#a9acd6',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  exploreText: {color: '#262a4f', fontSize: 14, fontWeight: '700'},
+  bannerImage: {width: 110, height: 100, resizeMode: 'contain', marginLeft: 10},
   liveCarsHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    marginVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 16,
   },
-  liveCarsHeader: {fontSize: 18, fontWeight: '700', color: '#333'},
-  refreshBtn: {padding: 5},
+  liveCarsHeader: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1F2937',
+    letterSpacing: -0.5,
+  },
+  liveCarsSubtext: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  refreshGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#a9acd6',
+    shadowColor: '#a9acd6',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    marginHorizontal: 10,
-    marginBottom: 15,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
   },
-  carImage: {width: '100%', height: 160, resizeMode: 'cover'},
+  carImage: {width: '100%', height: 200, resizeMode: 'cover'},
   heartIcon: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#00000050',
-    padding: 6,
-    borderRadius: 20,
+    top: 14,
+    right: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 10,
+    borderRadius: 24,
   },
   scrapBadge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: '#ff0000cc',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    top: 14,
+    left: 14,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
-  scrapText: {color: '#fff', fontWeight: '700', fontSize: 10},
-  cardDetails: {padding: 10},
-  carName: {fontSize: 16, fontWeight: '700', color: '#333'},
-  locationRow: {flexDirection: 'row', alignItems: 'center', marginTop: 4},
-  locationTextSmall: {fontSize: 12, color: '#666', marginLeft: 4},
-  carInfo: {fontSize: 12, color: '#777', marginTop: 4},
+  scrapText: {color: '#fff', fontWeight: '800', fontSize: 11},
+  cardDetails: {padding: 18},
+  carName: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#1F2937',
+    lineHeight: 26,
+    letterSpacing: -0.3,
+  },
+  locationTextSmall: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  carInfo: {fontSize: 13, color: '#9CA3AF', marginTop: 6, fontWeight: '500'},
   bidSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
-  highestBid: {fontSize: 12, color: '#666'},
-  bidAmount: {fontSize: 16, fontWeight: '700', color: '#007bff'},
-  timerContainer: {flexDirection: 'row', alignItems: 'center'},
-  timeRemaining: {fontSize: 10, color: '#666', marginRight: 4},
+  highestBid: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  bidAmount: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#262a4f',
+    letterSpacing: -0.5,
+  },
+  timerContainer: {alignItems: 'flex-end'},
+  timeRemaining: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginBottom: 6,
+    fontWeight: '600',
+  },
   timerBox: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#262a4f',
+    shadowColor: '#262a4f',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  timerText: {color: '#fff', fontWeight: '700', fontSize: 12},
-  timerSeparator: {marginHorizontal: 2, fontWeight: '700', color: '#007bff'},
+  timerText: {
+    color: '#a9acd6',
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
   placeBidButton: {
-    backgroundColor: '#28a745',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 12,
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginTop: 16,
+    backgroundColor: '#a9acd6',
+    shadowColor: '#a9acd6',
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  placeBidButtonDisabled: {
-    backgroundColor: '#6c757d',
-  },
+  placeBidButtonDisabled: {backgroundColor: '#d4d6e9'},
   placeBidText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-    marginRight: 6,
+    color: '#262a4f',
+    fontSize: 16,
+    fontWeight: '800',
+    marginRight: 8,
+    letterSpacing: 0.5,
   },
-  loadingContainer: {alignItems: 'center', marginTop: 50},
-  loadingText: {marginTop: 10, color: '#007bff', fontSize: 14},
-  emptyContainer: {alignItems: 'center', marginTop: 50},
-  emptyText: {fontSize: 16, fontWeight: '700', color: '#777'},
-  emptySubtext: {
-    fontSize: 12,
-    color: '#aaa',
-    marginTop: 4,
-    textAlign: 'center',
+  loadingContainer: {alignItems: 'center', marginTop: 80},
+  loadingText: {
+    marginTop: 16,
+    color: '#a9acd6',
+    fontSize: 16,
+    fontWeight: '600',
   },
+  emptyContainer: {alignItems: 'center', marginTop: 80},
+  emptyText: {fontSize: 20, fontWeight: '800', color: '#6B7280', marginTop: 16},
   retryButton: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginTop: 10,
-  },   
-  retryText: {color: '#fff', fontWeight: '600'},
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 20,
+    backgroundColor: '#a9acd6',
+    shadowColor: '#a9acd6',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  retryText: {color: '#262a4f', fontWeight: '800', fontSize: 15},
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(38, 42, 79, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
-    width: '85%',
-    maxWidth: 400,
+    borderRadius: 28,
+    width: '100%',
+    maxWidth: 420,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 20},
+    shadowOpacity: 0.4,
+    shadowRadius: 30,
+    elevation: 20,
   },
+  modalHeader: {padding: 24, alignItems: 'center', backgroundColor: '#262a4f'},
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#a9acd6',
+    letterSpacing: -0.5,
   },
-  amountContainer: {
-    marginBottom: 24,
-  },
+  amountContainer: {padding: 24, paddingTop: 16},
   amountLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    fontSize: 15,
+    color: '#6B7280',
+    marginBottom: 12,
+    fontWeight: '600',
   },
   bidInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#e6e8f3',
+    borderRadius: 16,
     overflow: 'hidden',
   },
-  adjustButton: {
-    backgroundColor: '#000',
-    width: 50,
-    height: 50,
+  adjustButtonMinus: {
+    width: 60,
+    height: 60,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#EF4444',
   },
-  adjustButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '600',
+  adjustButtonPlus: {
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#a9acd6',
   },
+  adjustButtonText: {color: '#fff', fontSize: 28, fontWeight: '700'},
   bidInput: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 18,
-    fontWeight: '600',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    fontSize: 24,
+    fontWeight: '800',
     textAlign: 'center',
-    color: '#333',
+    color: '#1F2937',
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
+  modalActions: {flexDirection: 'row', padding: 24, paddingTop: 0, gap: 12},
   cancelButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 14,
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: 2,
+    borderColor: '#e6e8f3',
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#dc3545',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#262a4f',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   confirmButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    backgroundColor: '#28a745',
+    paddingVertical: 16,
+    borderRadius: 14,
     alignItems: 'center',
+    backgroundColor: '#a9acd6',
+    shadowColor: '#a9acd6',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   confirmButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#262a4f',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   warningFixedContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'red',
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    padding: 16,
+    backgroundColor: '#EF4444',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: -8},
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 12,
   },
   warningIconText: {flexDirection: 'row', alignItems: 'center', flex: 1},
-  warningText: {color: '#fff', fontSize: 12, flex: 1},
+  warningTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  warningText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+    opacity: 0.95,
+  },
+
+  // Clickable Notification Banner
+  notificationBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    zIndex: 9999,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  notificationText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
 });
 
 export default HomeScreen;
