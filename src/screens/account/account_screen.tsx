@@ -131,7 +131,7 @@ const AccountScreen = ({ navigation }: any) => {
 
       setLoading(true);
       const res = await fetch(
-        `http://caryanamindia.prodchunca.in.net/ProfilePhoto/add?userId=${userId}`,
+        `https://caryanamindia.prodchunca.in.net/ProfilePhoto/add?userId=${userId}`,
         {
           method: 'POST',
           headers: {
@@ -167,7 +167,7 @@ const AccountScreen = ({ navigation }: any) => {
 
       setLoading(true);
       const res = await fetch(
-        `http://caryanamindia.prodchunca.in.net/ProfilePhoto/deletebyuserid?userId=${userId}`,
+        `https://caryanamindia.prodchunca.in.net/ProfilePhoto/deletebyuserid?userId=${userId}`,
         {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },

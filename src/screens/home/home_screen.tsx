@@ -1,4 +1,4 @@
-// HomeScreen.tsx - UPDATED WITH DARK NAVY & SOFT LAVENDER + CLICKABLE DEMO NOTIFICATIONS + CLOSEABLE LOW BALANCE WARNING
+// HomeScreen.tsx - FINAL OPTIMIZED VERSION (Bid Loading Fixed)
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
@@ -16,13 +16,18 @@ import {
   StatusBar,
   Animated,
   Easing,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import {useWebSocket} from '../../utility/WebSocketConnection';
 import {useRoute, RouteProp} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
+import {useWishlist} from '../../context/WishlistContext';
+import Geolocation from '@react-native-community/geolocation';
 
 interface Car {
   id: string;
@@ -75,8 +80,10 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 const TOKEN_KEY = 'auth_token';
 const USER_ID_KEY = 'user_id';
 const AUCTION_DURATION_MS = 30 * 60 * 1000;
+const DEFAULT_LOCATION = 'Mumbai, India';
 
 const HomeScreen: React.FC = () => {
+  const {wishlist, toggleWishlist, isWishlisted} = useWishlist();
   const [activeTab, setActiveTab] = useState<'LIVE' | 'OCB'>('LIVE');
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,17 +101,25 @@ const HomeScreen: React.FC = () => {
   }>({});
   const [filteredLiveCars, setFilteredLiveCars] = useState<Car[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [carDetailsModalVisible, setCarDetailsModalVisible] = useState(false);
+  const [selectedCarForDetails, setSelectedCarForDetails] = useState<Car | null>(null);
   const [selectedCar, setSelectedCar] = useState<{
     bidCarId: string;
     price: number;
   } | null>(null);
   const [bidAmounts, setBidAmounts] = useState<{[bidCarId: string]: string}>({});
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [showLowBalanceWarning, setShowLowBalanceWarning] = useState(true); // New state
+  const [showLowBalanceWarning, setShowLowBalanceWarning] = useState(true);
+  const [currentLocation, setCurrentLocation] = useState<string>(DEFAULT_LOCATION);
+  const [locationLoading, setLocationLoading] = useState(true);
+
+  // NEW: Cache price when opening bid modal
+  const [bidModalPriceCache, setBidModalPriceCache] = useState<{[bidCarId: string]: number}>({});
 
   const bidInitializedRef = useRef<string | null>(null);
   const countdownInterval = useRef<NodeJS.Timeout | null>(null);
   const notificationAnim = useRef(new Animated.Value(-100)).current;
+
   const route = useRoute<HomeScreenRouteProp>();
   const routeParams = route.params;
   const {
@@ -116,31 +131,77 @@ const HomeScreen: React.FC = () => {
     connectionStatus,
   } = useWebSocket();
 
-  // Show notification (with animation)
+  // === LOCATION LOGIC ===
+  const getCurrentLocation = useCallback(async () => {
+    const requestPermission = async () => {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'This app needs location access to show your current city.',
+            buttonPositive: 'OK',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+      return true;
+    };
+
+    const hasPermission = await requestPermission();
+    if (!hasPermission) {
+      setCurrentLocation(DEFAULT_LOCATION);
+      setLocationLoading(false);
+      return;
+    }
+
+    Geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await response.json();
+          const city = data.address?.city || data.address?.town || data.address?.village || 'Mumbai';
+          const country = data.address?.country || 'India';
+          setCurrentLocation(`${city}, ${country}`);
+        } catch (error) {
+          setCurrentLocation(DEFAULT_LOCATION);
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      () => {
+        setCurrentLocation(DEFAULT_LOCATION);
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  }, []);
+
+  useEffect(() => {
+    getCurrentLocation();
+  }, [getCurrentLocation]);
+
+  // === NOTIFICATION SYSTEM ===
   const showNotification = useCallback((car: Car, type: 'bid' | 'outbid' | 'won' | 'time') => {
     const carName = `${car.make || 'Toyota'} ${car.model || 'Innova'} ${car.variant || '2.8 ZX'}`;
     let message = '';
-    let bgColor = '#262a4f';
-
     switch (type) {
       case 'bid':
         message = `You placed a bid on ${carName} at ₹${(livePrices[car.id]?.price || 0).toLocaleString()}`;
-        bgColor = '#10B981';
         break;
       case 'outbid':
         message = `You've been outbid on ${carName}! New bid: ₹${((livePrices[car.id]?.price || 0) + 5000).toLocaleString()}`;
-        bgColor = '#EF4444';
         break;
       case 'won':
         message = `Congratulations! You won ${carName} for ₹${(livePrices[car.id]?.price || 0).toLocaleString()}`;
-        bgColor = '#8B5CF6';
         break;
       case 'time':
         message = `Only 5 minutes left for ${carName}!`;
-        bgColor = '#F59E0B';
         break;
     }
-
     const newNotif: Notification = {
       id: `${car.id}-${Date.now()}`,
       carId: car.id,
@@ -148,10 +209,7 @@ const HomeScreen: React.FC = () => {
       type,
       timestamp: Date.now(),
     };
-
     setNotifications(prev => [newNotif, ...prev.slice(0, 4)]);
-
-    // Animate in
     notificationAnim.setValue(-100);
     Animated.timing(notificationAnim, {
       toValue: 0,
@@ -159,8 +217,6 @@ const HomeScreen: React.FC = () => {
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
-
-    // Auto hide after 4 seconds
     setTimeout(() => {
       Animated.timing(notificationAnim, {
         toValue: -100,
@@ -172,27 +228,18 @@ const HomeScreen: React.FC = () => {
     }, 4000);
   }, [livePrices, notificationAnim]);
 
-  // Click notification to show demo
   const handleNotificationClick = () => {
     if (filteredLiveCars.length === 0) {
       Alert.alert('No Cars', 'No live cars to show demo notifications.');
       return;
     }
-
     const randomCar = filteredLiveCars[Math.floor(Math.random() * filteredLiveCars.length)];
     const types: Array<'bid' | 'outbid' | 'won' | 'time'> = ['bid', 'outbid', 'time', 'won'];
     const randomType = types[Math.floor(Math.random() * types.length)];
-
-    // Only show "won" if auction is ending
-    if (randomType === 'won' && !countdownTimers[randomCar.id]?.startsWith?.('00:00:')) {
-      showNotification(randomCar, 'bid');
-    } else if (randomType === 'time' && !countdownTimers[randomCar.id]?.startsWith?.('00:05:')) {
-      showNotification(randomCar, 'bid');
-    } else {
-      showNotification(randomCar, randomType);
-    }
+    showNotification(randomCar, randomType);
   };
 
+  // === HELPER FUNCTIONS ===
   const getCurrentDateTimeForAPI = useCallback((): string => {
     const now = new Date();
     const year = now.getFullYear();
@@ -230,6 +277,7 @@ const HomeScreen: React.FC = () => {
     )}:${String(seconds).padStart(2, '0')}`;
   }, []);
 
+  // === AUCTION TIME LOGIC ===
   useEffect(() => {
     const now = Date.now();
     const newAuctionTimes: {[key: string]: {start: number; end: number}} = {
@@ -289,6 +337,7 @@ const HomeScreen: React.FC = () => {
     };
   }, [liveCars, carAuctionTimes, formatCountdown]);
 
+  // === AUTH & WEBSOCKET ===
   useEffect(() => {
     loadStoredAuthData();
     return () => {
@@ -330,6 +379,7 @@ const HomeScreen: React.FC = () => {
     }
   }, [connectionStatus]);
 
+  // === PRICE POLLING ===
   useEffect(() => {
     if (filteredLiveCars.length > 0) {
       const interval = setInterval(() => {
@@ -358,6 +408,7 @@ const HomeScreen: React.FC = () => {
     else Alert.alert('Authentication Required', 'Please login again.');
   };
 
+  // === API CALLS ===
   const fetchLivePrice = async (
     bidCarId: string,
   ): Promise<LivePriceData | null> => {
@@ -370,7 +421,7 @@ const HomeScreen: React.FC = () => {
         price,
         remainingTime: data?.object?.remainingTime || '',
         timeLeft: data?.object?.timeLeft || '',
-        auctionArtifactStartTime:
+        auctionStartTime:
           data?.object?.auctionStartTime || data?.object?.startTime,
         auctionEndTime: data?.object?.auctionEndTime || data?.object?.endTime,
       };
@@ -445,17 +496,26 @@ const HomeScreen: React.FC = () => {
     });
   }, [filteredLiveCars, carImageData, carDetailsData]);
 
+  // === MODAL HANDLERS ===
+  const openCarDetailsModal = async (car: Car) => {
+    setSelectedCarForDetails(car);
+    setCarDetailsModalVisible(true);
+  };
+
+  // FIXED: Only one fetch, cache price
   const openBidModal = async (bidCarId: string) => {
     try {
       const priceData = await fetchLivePrice(bidCarId);
       const currentPrice = priceData?.price ?? 0;
-      bidInitializedRef.current = null;
-      setSelectedCar({bidCarId, price: currentPrice});
+
+      setBidModalPriceCache(prev => ({ ...prev, [bidCarId]: currentPrice }));
+      setSelectedCar({ bidCarId, price: currentPrice });
       const initialBid = (currentPrice + 2000).toString();
-      setBidAmounts(prev => ({...prev, [bidCarId]: initialBid}));
-      bidInitializedRef.current = bidCarId;
+      setBidAmounts(prev => ({ ...prev, [bidCarId]: initialBid }));
       setModalVisible(true);
-    } catch (error) {}
+    } catch (error) {
+      Alert.alert('Error', 'Could not load current price. Try again.');
+    }
   };
 
   useEffect(() => {
@@ -469,7 +529,17 @@ const HomeScreen: React.FC = () => {
   }, [modalVisible, livePrices[selectedCar?.bidCarId || '']?.price]);
 
   useEffect(() => {
-    if (!modalVisible) bidInitializedRef.current = null;
+    if (!modalVisible) {
+      bidInitializedRef.current = null;
+      // Optional: clear cache on close
+      if (selectedCar) {
+        setBidModalPriceCache(prev => {
+          const updated = { ...prev };
+          delete updated[selectedCar.bidCarId];
+          return updated;
+        });
+      }
+    }
   }, [modalVisible]);
 
   const handleBidInputChange = (text: string) => {
@@ -480,11 +550,9 @@ const HomeScreen: React.FC = () => {
 
   const handleDecreaseBid = () => {
     if (selectedCar) {
-      const livePriceData = livePrices[selectedCar.bidCarId];
-      const currentPrice = livePriceData?.price ?? selectedCar.price ?? 0;
-      const current =
-        parseInt(bidAmounts[selectedCar.bidCarId] || '0') || currentPrice;
-      if (current - 2000 > currentPrice) {
+      const cachedPrice = bidModalPriceCache[selectedCar.bidCarId] ?? selectedCar.price ?? 0;
+      const current = parseInt(bidAmounts[selectedCar.bidCarId] || '0') || cachedPrice + 2000;
+      if (current - 2000 > cachedPrice) {
         setBidAmounts(prev => ({
           ...prev,
           [selectedCar.bidCarId]: (current - 2000).toString(),
@@ -495,10 +563,7 @@ const HomeScreen: React.FC = () => {
 
   const handleIncreaseBid = () => {
     if (selectedCar) {
-      const livePriceData = livePrices[selectedCar.bidCarId];
-      const currentPrice = livePriceData?.price ?? selectedCar.price ?? 0;
-      const current =
-        parseInt(bidAmounts[selectedCar.bidCarId] || '0') || currentPrice;
+      const current = parseInt(bidAmounts[selectedCar.bidCarId] || '0') || (selectedCar.price + 2000);
       setBidAmounts(prev => ({
         ...prev,
         [selectedCar.bidCarId]: (current + 2000).toString(),
@@ -506,22 +571,26 @@ const HomeScreen: React.FC = () => {
     }
   };
 
+  // FIXED: Use cached price, no extra fetch
   const handlePlaceBid = async () => {
     if (!token || !userId || !selectedCar) {
       Alert.alert('Error', 'Please login to place a bid.');
       return;
     }
-    const livePriceData = livePrices[selectedCar.bidCarId];
-    const currentPrice = livePriceData?.price ?? selectedCar.price ?? 0;
+
+    const cachedPrice = bidModalPriceCache[selectedCar.bidCarId] ?? 0;
     const bidValue = parseInt(bidAmounts[selectedCar.bidCarId] || '0');
-    if (isNaN(bidValue) || bidValue <= currentPrice) {
+
+    if (isNaN(bidValue) || bidValue <= cachedPrice) {
       Alert.alert(
         'Invalid Bid',
-        `Bid amount (₹${bidValue}) must be greater than current bid (₹${currentPrice}).`,
+        `Bid amount (₹${bidValue}) must be greater than current bid (₹${cachedPrice}).`,
       );
       return;
     }
+
     setBiddingStates(prev => ({...prev, [selectedCar.bidCarId]: true}));
+
     try {
       const currentDateTime = getCurrentDateTimeForAPI();
       const requestBody = {
@@ -530,8 +599,7 @@ const HomeScreen: React.FC = () => {
         dateTime: currentDateTime,
         amount: bidValue,
       };
-      if (!token || token.trim() === '')
-        throw new Error('Invalid authentication token');
+
       const bidUrl = `https://caryanamindia.prodchunca.in.net/Bid/placeBid?bidCarId=${selectedCar.bidCarId}`;
       const response = await fetch(bidUrl, {
         method: 'POST',
@@ -542,11 +610,13 @@ const HomeScreen: React.FC = () => {
         },
         body: JSON.stringify(requestBody),
       });
+
       let data = null;
       const text = await response.text();
       try {
         data = text ? JSON.parse(text) : null;
       } catch (parseError) {}
+
       if (response.ok) {
         setModalVisible(false);
         Alert.alert(
@@ -588,6 +658,7 @@ const HomeScreen: React.FC = () => {
     }
   };
 
+  // === RENDER FUNCTIONS ===
   const renderCarCard = (car: Car, idx: number) => {
     const carId = car.id || `car-${idx}`;
     const beadingId = car.beadingCarId || carId;
@@ -603,20 +674,32 @@ const HomeScreen: React.FC = () => {
     const currentBid =
       livePriceData?.price ?? car.currentBid ?? carDetails?.price ?? 0;
     const timeLeft = countdownTimers[carId] || '00:30:00';
-    const isBidding = biddingStates[carId] || false;
+    const wishlisted = isWishlisted(carId);
 
     return (
-      <View key={carId} style={styles.card}>
+      <TouchableOpacity
+        key={carId}
+        style={styles.card}
+        activeOpacity={0.95}
+        onPress={() => openCarDetailsModal(car)}>
         <Image source={{uri: imageUrl}} style={styles.carImage} />
-        <TouchableOpacity style={styles.heartIcon}>
-          <Ionicons name="heart-outline" size={24} color="#fff" />
+        <TouchableOpacity
+          style={styles.heartIcon}
+          onPress={(e) => {
+            e.stopPropagation();
+            toggleWishlist(carId);
+          }}>
+          <Ionicons
+            name={wishlisted ? "heart" : "heart-outline"}
+            size={24}
+            color={wishlisted ? "#e74c3c" : "#fff"}
+          />
         </TouchableOpacity>
         {car.isScrap && (
           <View style={styles.scrapBadge}>
             <Text style={styles.scrapText}>SCRAP CAR</Text>
           </View>
         )}
-
         <View style={styles.cardDetails}>
           {carDetails && (
             <Text style={styles.carName}>
@@ -640,7 +723,6 @@ const HomeScreen: React.FC = () => {
             {carDetails?.ownerSerial || car.owner} Owner •{' '}
             {carDetails?.fuelType || car.fuelType}
           </Text>
-
           <View style={styles.bidSection}>
             <View>
               <Text style={styles.highestBid}>
@@ -659,26 +741,18 @@ const HomeScreen: React.FC = () => {
           </View>
 
           <TouchableOpacity
-            onPress={() => openBidModal(carId)}
-            disabled={isBidding}
+            onPress={(e) => {
+              e.stopPropagation();
+              openCarDetailsModal(car);
+            }}
             activeOpacity={0.8}>
-            <View
-              style={[
-                styles.placeBidButton,
-                isBidding && styles.placeBidButtonDisabled,
-              ]}>
-              {isBidding ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Text style={styles.placeBidText}>Place Bid</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#fff" />
-                </>
-              )}
+            <View style={styles.viewButton}>
+              <Text style={styles.viewButtonText}>VIEW</Text>
+              <Ionicons name="eye" size={16} color="#fff" style={{marginLeft: 6}} />
             </View>
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -703,14 +777,183 @@ const HomeScreen: React.FC = () => {
     );
   };
 
+  const renderCarDetailsModal = () => {
+    if (!selectedCarForDetails) return null;
+    const carId = selectedCarForDetails.id;
+    const beadingId = selectedCarForDetails.beadingCarId || carId;
+    const bidId = selectedCarForDetails.bidCarId || carId;
+    const imageUrl =
+      carImageData[carId] ||
+      carImageData[beadingId] ||
+      carImageData[bidId] ||
+      selectedCarForDetails.imageUrl ||
+      'https://photos.caryanamindia.com/1453c850-c6a4-4d46-ab36-6c4dbab27f4c-crysta%201%20-%20Copy.jpg';
+   
+    const carDetails = carDetailsData[carId] || carDetailsData[bidId];
+    const livePriceData = livePrices[carId];
+    const currentBid = livePriceData?.price ?? selectedCarForDetails.currentBid ?? carDetails?.price ?? 5874000;
+    const timeLeft = countdownTimers[carId] || '23:24:00';
+
+    const brand = carDetails?.brand || selectedCarForDetails.make || '2021';
+    const model = carDetails?.model || selectedCarForDetails.model || 'FORCE ONE';
+    const variant = carDetails?.variant || selectedCarForDetails.variant || 'BLUE & AUTOMATIC';
+    const kmDriven = carDetails?.kmDriven || selectedCarForDetails.kmsDriven || 50000;
+    const ownerSerial = carDetails?.ownerSerial || selectedCarForDetails.owner || '2ND OWNER';
+    const fuelType = carDetails?.fuelType || selectedCarForDetails.fuelType || 'DIESEL';
+    const registration = carDetails?.registration || selectedCarForDetails.rtoCode || 'MH-12';
+    const city = carDetails?.city || selectedCarForDetails.city || 'Kharadi, Kharadi';
+    const transmission = carDetails?.transmission || 'Automatic';
+    const makeYear = carDetails?.makeYear || carDetails?.year || '2021';
+    const insuranceType = carDetails?.insuranceType || 'Third Party';
+
+    return (
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={carDetailsModalVisible}
+        onRequestClose={() => setCarDetailsModalVisible(false)}>
+        <SafeAreaView style={styles.detailsModalContainer}>
+          <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+         
+          <View style={styles.detailsHeader}>
+            <TouchableOpacity
+              onPress={() => setCarDetailsModalVisible(false)}
+              style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#262a4f" />
+            </TouchableOpacity>
+            <Text style={styles.detailsHeaderTitle}>Car Details</Text>
+            <TouchableOpacity
+              onPress={() => toggleWishlist(carId)}
+              style={styles.headerHeartIcon}>
+              <Ionicons
+                name={isWishlisted(carId) ? "heart" : "heart-outline"}
+                size={24}
+                color={isWishlisted(carId) ? "#e74c3c" : "#262a4f"}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.detailsScrollView} showsVerticalScrollIndicator={false}>
+            <View style={styles.detailsImageContainer}>
+              <Image source={{uri: imageUrl}} style={styles.detailsCarImage} />
+              {selectedCarForDetails.isScrap && (
+                <View style={styles.detailsScrapBadge}>
+                  <Text style={styles.scrapText}>SCRAP CAR</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.detailsTitleSection}>
+              <Text style={styles.detailsCarTitle}>{makeYear} {model.toUpperCase()}</Text>
+              <Text style={styles.detailsCarSubtitle}>{variant}</Text>
+              <View style={styles.quickInfoBadges}>
+                <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{kmDriven.toLocaleString()} KM</Text></View>
+                <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{ownerSerial}</Text></View>
+                <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{fuelType}</Text></View>
+                <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{registration}</Text></View>
+              </View>
+              <View style={styles.locationTestDriveRow}>
+                <View style={styles.locationInfoBox}>
+                  <MaterialCommunityIcons name="map-marker" size={18} color="#10B981" />
+                  <Text style={styles.locationInfoText}>Parked at: {city}</Text>
+                </View>
+              </View>
+              <View style={styles.testDriveAvailable}>
+                <Ionicons name="home" size={18} color="#10B981" />
+                <Text style={styles.testDriveText}>Home Test Drive Available</Text>
+              </View>
+              <TouchableOpacity style={styles.inspectionReportButton}>
+                <MaterialCommunityIcons name="file-document-outline" size={20} color="#a9acd6" />
+                <Text style={styles.inspectionReportText}>View Inspection Report</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.priceTimerSection}>
+              <View style={styles.priceBox}>
+                <Text style={styles.priceLabel}>Amount: ₹{currentBid.toLocaleString()}</Text>
+                <Text style={styles.priceSubLabel}>FIXED ROAD PRICE</Text>
+                <Text style={styles.timerLabelBig}>{timeLeft}</Text>
+              </View>
+            </View>
+            <View style={styles.knowYourCarSection}>
+              <Text style={styles.sectionTitle}>Know your Car</Text>
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconCircle}><MaterialCommunityIcons name="card-account-details" size={24} color="#10B981" /></View>
+                  <Text style={styles.detailLabel}>Reg Number</Text>
+                  <Text style={styles.detailValue}>{registration}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconCircle}><MaterialCommunityIcons name="calendar" size={24} color="#10B981" /></View>
+                  <Text style={styles.detailLabel}>Make Year</Text>
+                  <Text style={styles.detailValue}>{makeYear}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconCircle}><MaterialCommunityIcons name="gas-station" size={24} color="#10B981" /></View>
+                  <Text style={styles.detailLabel}>Fuel Type</Text>
+                  <Text style={styles.detailValue}>{fuelType}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconCircle}><MaterialCommunityIcons name="cog" size={24} color="#10B981" /></View>
+                  <Text style={styles.detailLabel}>Transmission</Text>
+                  <Text style={styles.detailValue}>{transmission}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconCircle}><MaterialCommunityIcons name="car" size={24} color="#10B981" /></View>
+                  <Text style={styles.detailLabel}>KM Driven</Text>
+                  <Text style={styles.detailValue}>{kmDriven.toLocaleString()}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconCircle}><MaterialCommunityIcons name="account" size={24} color="#10B981" /></View>
+                  <Text style={styles.detailLabel}>Ownership</Text>
+                  <Text style={styles.detailValue}>{ownerSerial === '2ND OWNER' ? '2' : ownerSerial}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconCircle}><MaterialCommunityIcons name="shield-check" size={24} color="#10B981" /></View>
+                  <Text style={styles.detailLabel}>Insurance Type</Text>
+                  <Text style={styles.detailValue}>{insuranceType}</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.topFeaturesSection}>
+              <Text style={styles.sectionTitle}>Top Features</Text>
+              <View style={styles.featuresGrid}>
+                <View style={styles.featureItem}><MaterialCommunityIcons name="bluetooth" size={28} color="#262a4f" /><Text style={styles.featureText}>Bluetooth Compatibility</Text></View>
+                <View style={styles.featureItem}><MaterialCommunityIcons name="air-conditioner" size={28} color="#262a4f" /><Text style={styles.featureText}>Air Conditioning</Text></View>
+                <View style={styles.featureItem}><MaterialCommunityIcons name="window-closed" size={28} color="#262a4f" /><Text style={styles.featureText}>Power Windows</Text></View>
+                <View style={styles.featureItem}><MaterialCommunityIcons name="camera-rear" size={28} color="#262a4f" /><Text style={styles.featureText}>Rear Parking Camera</Text></View>
+                <View style={styles.featureItem}><MaterialCommunityIcons name="car-brake-abs" size={28} color="#262a4f" /><Text style={styles.featureText}>ABS</Text></View>
+                <View style={styles.featureItem}><MaterialCommunityIcons name="airbag" size={28} color="#262a4f" /><Text style={styles.featureText}>Air Bag</Text></View>
+                <View style={styles.featureItem}><MaterialCommunityIcons name="power" size={28} color="#262a4f" /><Text style={styles.featureText}>Button Start</Text></View>
+              </View>
+            </View>
+            <View style={{height: 120}} />
+          </ScrollView>
+
+          <View style={styles.bottomActionBar}>
+            <TouchableOpacity
+              style={styles.placeBidButtonLarge}
+              onPress={() => {
+                setCarDetailsModalVisible(false);
+                setTimeout(() => openBidModal(carId), 300);
+              }}
+              activeOpacity={0.8}>
+              <Text style={styles.placeBidButtonText}>PLACE BID</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.interestedButton} activeOpacity={0.8}>
+              <Text style={styles.interestedButtonText}>I am Interested</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    );
+  };
+
+  // === MAIN RENDER ===
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#262a4f" />
       <LinearGradient
         colors={['#262a4f', '#353a65', '#262a4f']}
         style={styles.gradientBackground}>
-
-        {/* Clickable Notification Banner */}
         {notifications.length > 0 && (
           <TouchableOpacity
             activeOpacity={0.9}
@@ -738,7 +981,6 @@ const HomeScreen: React.FC = () => {
             <Ionicons name="chevron-down" size={18} color="#fff" style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         )}
-
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.profileSection}>
@@ -748,10 +990,12 @@ const HomeScreen: React.FC = () => {
                 }}
                 style={styles.profileImage}
               />
-              <View>
+              <View style={styles.locationContainer}>
                 <View style={styles.locationRow}>
                   <Ionicons name="location-sharp" size={14} color="#a9acd6" />
-                  <Text style={styles.locationLabel}>London, Nigeria</Text>
+                  <Text style={styles.locationLabel}>
+                    {locationLoading ? 'Fetching...' : currentLocation}
+                  </Text>
                   <Ionicons name="chevron-down" size={14} color="#a9acd6" />
                 </View>
               </View>
@@ -852,6 +1096,8 @@ const HomeScreen: React.FC = () => {
           </ScrollView>
         </View>
       </LinearGradient>
+
+      {/* BID MODAL */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -906,7 +1152,10 @@ const HomeScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Low Balance Warning with Close Button */}
+      {/* CAR DETAILS MODAL */}
+      {renderCarDetailsModal()}
+
+      {/* LOW BALANCE WARNING */}
       {showLowBalanceWarning && (
         <View style={styles.warningFixedContainer}>
           <View style={styles.warningIconText}>
@@ -953,9 +1202,15 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#a9acd6',
   },
+  locationContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+  },
   locationRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
   locationLabel: {color: '#a9acd6', fontSize: 13, fontWeight: '600'},
-  notificationIcon: {position: 'relative'},
+  notificationIcon: {position: 'relative', right: 20},
   notificationBadge: {
     position: 'absolute',
     top: 2,
@@ -1192,26 +1447,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 0.5,
   },
-  placeBidButton: {
+  viewButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     borderRadius: 16,
     marginTop: 16,
-    backgroundColor: '#a9acd6',
-    shadowColor: '#a9acd6',
+    backgroundColor: '#262a4f',
+    shadowColor: '#262a4f',
     shadowOffset: {width: 0, height: 6},
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
-  placeBidButtonDisabled: {backgroundColor: '#d4d6e9'},
-  placeBidText: {
-    color: '#262a4f',
+  viewButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '800',
-    marginRight: 8,
     letterSpacing: 0.5,
   },
   loadingContainer: {alignItems: 'center', marginTop: 80},
@@ -1368,8 +1621,6 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     padding: 4,
   },
-
-  // Clickable Notification Banner
   notificationBanner: {
     position: 'absolute',
     top: 0,
@@ -1391,6 +1642,297 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     flex: 1,
+  },
+  detailsModalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  backButton: {
+    padding: 8,
+  },
+  detailsHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#262a4f',
+    letterSpacing: -0.3,
+  },
+  headerHeartIcon: {
+    padding: 8,
+  },
+  detailsScrollView: {
+    flex: 1,
+  },
+  detailsImageContainer: {
+    width: '100%',
+    height: 280,
+    position: 'relative',
+    backgroundColor: '#f8f9fc',
+  },
+  detailsCarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  detailsScrapBadge: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  detailsTitleSection: {
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  detailsCarTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1F2937',
+    letterSpacing: -0.5,
+    marginBottom: 8,
+  },
+  detailsCarSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 16,
+  },
+  quickInfoBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  infoBadge: {
+    backgroundColor: '#f8f9fc',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e6e8f3',
+  },
+  infoBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#262a4f',
+  },
+  locationTestDriveRow: {
+    marginBottom: 12,
+  },
+  locationInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  locationInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  testDriveAvailable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  testDriveText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  inspectionReportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e6e8f3',
+  },
+  inspectionReportText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#a9acd6',
+  },
+  priceTimerSection: {
+    padding: 20,
+    backgroundColor: '#fff',
+    marginTop: 8,
+  },
+  priceBox: {
+    backgroundColor: '#f8f9fc',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#e6e8f3',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#262a4f',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  priceSubLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  timerLabelBig: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#a9acd6',
+    letterSpacing: 1,
+  },
+  knowYourCarSection: {
+    padding: 20,
+    backgroundColor: '#fff',
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1F2937',
+    letterSpacing: -0.3,
+    marginBottom: 20,
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  detailItem: {
+    width: '31%',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  detailIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f8f9fc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#e6e8f3',
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  topFeaturesSection: {
+    padding: 20,
+    backgroundColor: '#fff',
+    marginTop: 8,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  featureItem: {
+    width: '31%',
+    alignItems: 'center',
+    marginBottom: 24,
+    backgroundColor: '#f8f9fc',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e6e8f3',
+  },
+  featureText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  bottomActionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: -4},
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  placeBidButtonLarge: {
+    flex: 1,
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  placeBidButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  interestedButton: {
+    flex: 1,
+    backgroundColor: '#FCD34D',
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FCD34D',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  interestedButtonText: {
+    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
 

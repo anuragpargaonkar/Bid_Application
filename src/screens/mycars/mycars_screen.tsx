@@ -1,4 +1,4 @@
-// src/screens/Home/MyCarsScreen.tsx
+// src/screens/Home/MyCarsScreen.tsx - UPDATED WITH WISHLIST SYNC
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -15,6 +15,7 @@ import {
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { useWebSocket } from "../../utility/WebSocketConnection";
+import { useWishlist } from "../../context/WishlistContext";
 
 const { width } = Dimensions.get("window");
 
@@ -229,11 +230,11 @@ const useCarData = (liveCars: Car[]) => {
 };
 
 /* --------------------------------------------------------------
-   MyCarsScreen – Enhanced UI
+   MyCarsScreen – Enhanced UI with Wishlist Sync
    -------------------------------------------------------------- */
 const MyCarsScreen = ({ navigation }: any) => {
   const [selectedTab, setSelectedTab] = useState("Live bid");
-  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+  const { wishlist, toggleWishlist, isWishlisted } = useWishlist();
 
   const { liveCars, getLiveCars, isConnected, connectWebSocket } = useWebSocket();
 
@@ -247,14 +248,6 @@ const MyCarsScreen = ({ navigation }: any) => {
 
   const { filteredLiveCars, countdownTimers, livePrices, carImageData, carDetailsData } =
     useCarData(liveCars);
-
-  const toggleWishlist = (carId: string) => {
-    setWishlist((prev) => {
-      const copy = new Set(prev);
-      copy.has(carId) ? copy.delete(carId) : copy.add(carId);
-      return copy;
-    });
-  };
 
   const onRefreshPress = () => {
     refreshSpin.setValue(0);
@@ -274,7 +267,7 @@ const MyCarsScreen = ({ navigation }: any) => {
 
   const dataToShow =
     selectedTab === "Wishlist"
-      ? filteredLiveCars.filter((c) => wishlist.has(c.id))
+      ? filteredLiveCars.filter((c) => isWishlisted(c.id))
       : selectedTab === "Live bid"
       ? filteredLiveCars
       : [];
@@ -283,7 +276,7 @@ const MyCarsScreen = ({ navigation }: any) => {
     const carId = item.id;
     const beadingId = item.beadingCarId || carId;
     const bidId = item.bidCarId || carId;
-    const isWishlisted = wishlist.has(carId);
+    const wishlisted = isWishlisted(carId);
 
     const imageUrl =
       carImageData[beadingId] ||
@@ -304,9 +297,9 @@ const MyCarsScreen = ({ navigation }: any) => {
           onPress={() => toggleWishlist(carId)}
         >
           <Ionicons
-            name={isWishlisted ? "heart" : "heart-outline"}
+            name={wishlisted ? "heart" : "heart-outline"}
             size={24}
-            color={isWishlisted ? "#e74c3c" : "#fff"}
+            color={wishlisted ? "#e74c3c" : "#fff"}
           />
         </TouchableOpacity>
 
@@ -398,6 +391,11 @@ const MyCarsScreen = ({ navigation }: any) => {
             >
               {tab}
             </Text>
+            {tab === "Wishlist" && wishlist.size > 0 && (
+              <View style={styles.wishlistBadge}>
+                <Text style={styles.wishlistBadgeText}>{wishlist.size}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         ))}
       </View>
@@ -405,10 +403,18 @@ const MyCarsScreen = ({ navigation }: any) => {
       {/* Car List */}
       {dataToShow.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="car-outline" size={80} color="#a9acd6" />
-          <Text style={styles.emptyTitle}>No cars available</Text>
+          <Ionicons 
+            name={selectedTab === "Wishlist" ? "heart-outline" : "car-outline"} 
+            size={80} 
+            color="#a9acd6" 
+          />
+          <Text style={styles.emptyTitle}>
+            {selectedTab === "Wishlist" ? "No wishlisted cars" : "No cars available"}
+          </Text>
           <Text style={styles.emptySubtitle}>
-            Start exploring and bid your favorite cars now!
+            {selectedTab === "Wishlist" 
+              ? "Add cars to your wishlist by tapping the heart icon" 
+              : "Start exploring and bid your favorite cars now!"}
           </Text>
         </View>
       ) : (
@@ -507,6 +513,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 25,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
   },
   activeTabButton: {
     backgroundColor: COLORS.primary,
@@ -518,6 +526,18 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: "#fff",
+    fontWeight: "700",
+  },
+  wishlistBadge: {
+    backgroundColor: "#e74c3c",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 6,
+  },
+  wishlistBadgeText: {
+    color: "#fff",
+    fontSize: 11,
     fontWeight: "700",
   },
 
