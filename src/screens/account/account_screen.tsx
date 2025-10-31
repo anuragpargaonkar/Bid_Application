@@ -14,6 +14,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +32,6 @@ const AccountScreen = ({ navigation }: any) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const modalAnim = useRef(new Animated.Value(0)).current;
 
-  // ---------- JWT PARSE ----------
   const parseJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
@@ -49,7 +49,6 @@ const AccountScreen = ({ navigation }: any) => {
     }
   };
 
-  // ---------- FETCH DEALER + PHOTO ----------
   const fetchDealerData = async () => {
     try {
       setLoading(true);
@@ -69,23 +68,16 @@ const AccountScreen = ({ navigation }: any) => {
         return;
       }
 
-      // Dealer info
       const dealerRes = await fetch(
         `https://caryanamindia.prodchunca.in.net/dealer/${dealerId}`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/json',
-          },
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         },
       );
 
       const dealerJson = await dealerRes.json();
-      if (dealerRes.ok && dealerJson?.dealerDto) {
-        setDealerData(dealerJson.dealerDto);
-      }
+      if (dealerRes.ok && dealerJson?.dealerDto) setDealerData(dealerJson.dealerDto);
 
-      // Profile photo
       const photoRes = await fetch(
         `https://caryanamindia.prodchunca.in.net/ProfilePhoto/getbyuserid?userId=${userId}`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -95,9 +87,7 @@ const AccountScreen = ({ navigation }: any) => {
         const blob = await photoRes.blob();
         const imageUrl = URL.createObjectURL(blob);
         setPhotoUrl(imageUrl);
-      } else {
-        setPhotoUrl(null);
-      }
+      } else setPhotoUrl(null);
     } catch (error) {
       console.error('Error fetching dealer data:', error);
       Alert.alert('Error', 'Unable to fetch dealer data.');
@@ -106,7 +96,6 @@ const AccountScreen = ({ navigation }: any) => {
     }
   };
 
-  // ---------- ADD IMAGE ----------
   const handleAddImage = async () => {
     try {
       const token = await AsyncStorage.getItem(TOKEN_KEY);
@@ -114,11 +103,7 @@ const AccountScreen = ({ navigation }: any) => {
       const decoded = parseJwt(token);
       const userId = decoded?.userId;
 
-      const result = await launchImageLibrary({
-        mediaType: 'photo',
-        quality: 0.8,
-      });
-
+      const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
       if (result.didCancel || !result.assets?.length) return;
 
       const file = result.assets[0];
@@ -146,9 +131,7 @@ const AccountScreen = ({ navigation }: any) => {
       if (res.ok) {
         Alert.alert('Success', 'Profile photo added successfully.');
         fetchDealerData();
-      } else {
-        Alert.alert('Error', 'Failed to upload photo.');
-      }
+      } else Alert.alert('Error', 'Failed to upload photo.');
     } catch (error) {
       console.error('Add image error:', error);
       Alert.alert('Error', 'Could not upload photo.');
@@ -157,7 +140,6 @@ const AccountScreen = ({ navigation }: any) => {
     }
   };
 
-  // ---------- DELETE IMAGE ----------
   const handleDeleteImage = async () => {
     try {
       const token = await AsyncStorage.getItem(TOKEN_KEY);
@@ -168,18 +150,13 @@ const AccountScreen = ({ navigation }: any) => {
       setLoading(true);
       const res = await fetch(
         `https://caryanamindia.prodchunca.in.net/ProfilePhoto/deletebyuserid?userId=${userId}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (res.ok) {
         setPhotoUrl(null);
         Alert.alert('Deleted', 'Profile photo removed successfully.');
-      } else {
-        Alert.alert('Error', 'Failed to delete photo.');
-      }
+      } else Alert.alert('Error', 'Failed to delete photo.');
     } catch (error) {
       console.error('Delete image error:', error);
       Alert.alert('Error', 'Could not delete photo.');
@@ -188,49 +165,35 @@ const AccountScreen = ({ navigation }: any) => {
     }
   };
 
-  // ---------- MODAL ----------
   const openModal = () => {
     setModalVisible(true);
-    Animated.timing(modalAnim, {
-      toValue: 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(modalAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
   };
 
   const closeModal = () => {
-    Animated.timing(modalAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => setModalVisible(false));
-  };
-
-  // ---------- LOGOUT ----------
-  const confirmLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem(TOKEN_KEY);
-              navigation.replace('Login');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to log out. Please try again.');
-            }
-          },
-        },
-      ],
-      { cancelable: true },
+    Animated.timing(modalAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+      setModalVisible(false),
     );
   };
 
-  // ---------- EFFECT ----------
+  const confirmLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await AsyncStorage.removeItem(TOKEN_KEY);
+            navigation.replace('Login');
+          } catch {
+            Alert.alert('Error', 'Failed to log out. Please try again.');
+          }
+        },
+      },
+    ]);
+  };
+
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -241,16 +204,19 @@ const AccountScreen = ({ navigation }: any) => {
     fetchDealerData();
   }, []);
 
-  // ---------- UI ----------
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.navigate('Home')}>
-            <Ionicons name="arrow-back" size={22} color="#fff" />
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
+            <View style={styles.logoWrapper}>
+              <Image
+                source={require('../../assets/images/logo1.png')}
+                style={styles.logoImage}
+                resizeMode="cover"
+              />
+            </View>
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
@@ -258,10 +224,7 @@ const AccountScreen = ({ navigation }: any) => {
             <Text style={styles.subTitle}>Manage your account</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={confirmLogout}
-            activeOpacity={0.85}>
+          <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout} activeOpacity={0.85}>
             <Image
               source={require('../../assets/images/image.png')}
               style={styles.logoutIcon}
@@ -272,10 +235,7 @@ const AccountScreen = ({ navigation }: any) => {
       </View>
 
       {/* MAIN CONTENT */}
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* TOP BANNER */}
+      <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.topBanner}>
           <Text style={styles.topBannerText}>Get unlimited app access</Text>
           <Text style={styles.topBannerSub}>
@@ -286,11 +246,7 @@ const AccountScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {/* PROFILE CARD */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.profileCard}
-          onPress={openModal}>
+        <TouchableOpacity activeOpacity={0.9} style={styles.profileCard} onPress={openModal}>
           {photoUrl ? (
             <Image source={{ uri: photoUrl }} style={styles.profileAvatar} />
           ) : (
@@ -305,18 +261,15 @@ const AccountScreen = ({ navigation }: any) => {
                 : 'Name not available'}
             </Text>
             <Text style={styles.profileDetails}>
-              {dealerData?.mobileNo ||
-                (loading ? 'Loading...' : 'Mobile not available')}
+              {dealerData?.mobileNo || (loading ? 'Loading...' : 'Mobile not available')}
             </Text>
             <Text style={styles.profileDetails}>
-              Shop:{' '}
-              {dealerData?.shopName || (loading ? 'Loading...' : '—')}
+              Shop: {dealerData?.shopName || (loading ? 'Loading...' : '—')}
             </Text>
           </View>
           <Ionicons name="chevron-forward-outline" size={24} color="#A9ACD6" />
         </TouchableOpacity>
 
-        {/* TWO CARDS */}
         <View style={styles.twoCards}>
           <View style={styles.bigCard}>
             <Ionicons name="wallet-outline" size={34} color="#262A4F" />
@@ -339,369 +292,229 @@ const AccountScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* STORY BANNER */}
         <View style={styles.storyBanner}>
-          <Text style={styles.storyText}>
-            Your stories now have a new destination
-          </Text>
+          <Text style={styles.storyText}>Your stories now have a new destination</Text>
           <Text style={styles.bigCardSub}>Follow Caryanam Partners</Text>
-          <TouchableOpacity style={styles.followBtn}>
-            <Text style={styles.followText}>Follow</Text>
-          </TouchableOpacity>
+
+          {/* SOCIAL ICONS */}
+          <View style={styles.socialRow}>
+            <TouchableOpacity
+              style={styles.socialIcon}
+              onPress={() => Linking.openURL('mailto:info@caryanam.in')}>
+              <Ionicons name="mail-outline" size={18} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialIcon}
+              onPress={() => Linking.openURL('https://www.instagram.com/caryanamindia_/')}>
+              <Ionicons name="logo-instagram" size={18} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialIcon}
+              onPress={() =>
+                Linking.openURL('https://www.facebook.com/p/CaryanamIndia-61564972127778/')
+              }>
+              <Ionicons name="logo-facebook" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* DO NOT DISTURB */}
-        <View style={styles.largeListItem}>
-          <View style={styles.listTextContainer}>
-            <View style={styles.listIconText}>
-              <Ionicons name="moon-outline" size={24} color="#262A4F" />
-              <Text style={styles.largeListTitle}> Do not disturb</Text>
-            </View>
-            <Text style={styles.listSubAligned}>
-              Pause calls from Caryanam team
-            </Text>
-          </View>
-          <Switch
-            trackColor={{ false: '#ccc', true: '#A9ACD6' }}
-            thumbColor={doNotDisturb ? '#262A4F' : '#f4f3f4'}
-            value={doNotDisturb}
-            onValueChange={setDoNotDisturb}
-            style={{ transform: [{ scaleX: 1.3 }, { scaleY: 1.3 }] }}
-          />
+        <View style={styles.settingsCard}>
+          <Text style={styles.settingsTitle}>Do not disturb</Text>
+          <Switch value={doNotDisturb} onValueChange={setDoNotDisturb} thumbColor="#262A4F" />
         </View>
 
-        {/* REWARDS */}
-        <TouchableOpacity style={styles.largeListItem}>
-          <View style={styles.listTextContainer}>
-            <View style={styles.listIconText}>
-              <Ionicons name="cash-outline" size={24} color="#262A4F" />
-              <Text style={styles.largeListTitle}> Caryanam Rewards</Text>
-            </View>
-            <Text style={styles.listSubAligned}>View your Rewards</Text>
-          </View>
-          <Ionicons name="chevron-forward-outline" size={24} color="#A9ACD6" />
+        <TouchableOpacity style={styles.rewardsCard}>
+          <Ionicons name="gift-outline" size={28} color="#262A4F" />
+          <Text style={styles.rewardsText}>My rewards</Text>
         </TouchableOpacity>
 
-        {/* LOGOUT */}
-        <TouchableOpacity
-          style={[styles.largeListItem, styles.logoutListItem]}
-          onPress={confirmLogout}>
-          <View style={styles.listTextContainer}>
-            <View style={styles.listIconText}>
-              <Ionicons name="log-out-outline" size={24} color="#D32F2F" />
-              <Text style={[styles.largeListTitle, styles.logoutTitle]}>
-                Logout
-              </Text>
-            </View>
-          </View>
+        <TouchableOpacity style={styles.logoutCard} onPress={confirmLogout}>
+          <Ionicons name="log-out-outline" size={28} color="#262A4F" />
+          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* PROFILE DETAIL MODAL */}
-      <Modal transparent visible={modalVisible} onRequestClose={closeModal}>
+      {/* MODAL */}
+      <Modal visible={modalVisible} transparent animationType="none">
         <TouchableWithoutFeedback onPress={closeModal}>
-          <View style={styles.modalOverlay} />
-        </TouchableWithoutFeedback>
-
-        <Animated.View
-          style={[
-            styles.modalContainer,
-            {
-              opacity: modalAnim,
-              transform: [
+          <View style={styles.modalBackdrop}>
+            <Animated.View
+              style={[
+                styles.modalContent,
                 {
-                  scale: modalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.95, 1],
-                  }),
+                  opacity: modalAnim,
+                  transform: [
+                    {
+                      translateY: modalAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [50, 0],
+                      }),
+                    },
+                  ],
                 },
-              ],
-            },
-          ]}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#262A4F" />
-          ) : dealerData ? (
-            <>
-              <View style={styles.profileImageContainer}>
-                {photoUrl ? (
-                  <Image
-                    source={{ uri: photoUrl }}
-                    style={styles.profileImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={120}
-                    color="#ccc"
-                  />
-                )}
-                <View style={styles.imageButtonRow}>
-                  <TouchableOpacity
-                    style={styles.addImageButton}
-                    onPress={handleAddImage}>
-                    <Text style={styles.addImageText}>ADD IMAGE</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteImageButton}
-                    onPress={handleDeleteImage}>
-                    <Text style={styles.deleteImageText}>DELETE IMAGE</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.detailBox}>
-                <DetailRow label="First Name" value={dealerData.firstName} />
-                <DetailRow label="Last Name" value={dealerData.lastName} />
-                <DetailRow label="Mobile Number" value={dealerData.mobileNo} />
-                <DetailRow label="Shop Name" value={dealerData.shopName} />
-                <DetailRow label="Area" value={dealerData.area} />
-                <DetailRow label="Email" value={dealerData.email} />
-                <DetailRow label="City" value={dealerData.city} />
-                <DetailRow label="Address" value={dealerData.address} />
-              </View>
-
-              <TouchableOpacity style={styles.editButton} onPress={closeModal}>
-                <Text style={styles.editButtonText}>EDIT PROFILE</Text>
+              ]}>
+              <Text style={styles.modalTitle}>Profile Photo</Text>
+              <TouchableOpacity onPress={handleAddImage}>
+                <Text style={styles.modalOption}>Add / Change Photo</Text>
               </TouchableOpacity>
-            </>
-          ) : (
-            <Text>No data available.</Text>
-          )}
-        </Animated.View>
+              <TouchableOpacity onPress={handleDeleteImage}>
+                <Text style={styles.modalOption}>Delete Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={closeModal}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#262A4F" />
+        </View>
+      )}
     </Animated.View>
   );
 };
 
-// ---------- DETAIL ROW ----------
-const DetailRow = ({ label, value }: any) => (
-  <View style={styles.detailRow}>
-    <Text style={styles.detailLabel}>{label}</Text>
-    <Text style={styles.detailValue}>{value || '—'}</Text>
-  </View>
-);
-
-export default AccountScreen;
-
-// -------------------------------------------------
-// ------------------- STYLES ----------------------
-// -------------------------------------------------
-const COLORS = {
-  primary: '#262a4f',
-  secondary: '#a9acd6',
-  background: '#f5f6fa',
-  white: '#FFFFFF',
-};
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scrollArea: { flex: 1 },
-  header: {
-    paddingBottom: 10,
-    borderBottomLeftRadius: 26,
-    borderBottomRightRadius: 26,
-    elevation: 8,
-    backgroundColor: COLORS.white,
-    shadowColor: '#64748B',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    paddingBottom: 16,
-    paddingHorizontal: 18,
-  },
+  container: { flex: 1, backgroundColor: '#F7F8FB' },
+  header: { paddingHorizontal: 20, paddingTop: 20 },
+  headerInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backButton: {
+    backgroundColor: 'transparent',
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, color: COLORS.primary, fontWeight: '700' },
-  subTitle: { color: COLORS.secondary, fontSize: 12, marginTop: 2 },
-  logoutButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoutIcon: { width: 22, height: 22 },
+  logoWrapper: {
+    backgroundColor: '#051A2F',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoImage: { width: 40, height: 40, borderRadius: 12 },
+  headerCenter: { alignItems: 'center', flex: 1 },
+  headerTitle: { fontSize: 20, fontWeight: '600', color: '#262A4F' },
+  subTitle: { fontSize: 12, color: '#8C91C1' },
+  logoutButton: { padding: 4 },
+  logoutIcon: { width: 30, height: 20 },
+  scrollArea: { marginTop: 20 },
   topBanner: {
-    backgroundColor: '#A9ACD6',
-    marginHorizontal: 14,
-    marginTop: 16,
-    paddingVertical: 26,
-    paddingHorizontal: 22,
+    backgroundColor: '#262A4F',
     borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginHorizontal: 20,
   },
-  topBannerText: {
-    fontSize: 17,
-    color: '#262A4F',
-    marginBottom: 4,
-    fontWeight: '600',
-  },
-  topBannerSub: { fontSize: 14, color: '#333' },
-  highlight: { color: '#262A4F', fontWeight: '700' },
-  knowMore: {
-    color: '#262A4F',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
+  topBannerText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  topBannerSub: { color: '#E5E7FF', fontSize: 13, marginTop: 4 },
+  highlight: { color: '#FFD700' },
+  knowMore: { color: '#61AFFE', fontSize: 13 },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    marginTop: 18,
-    marginHorizontal: 14,
-    padding: 14,
+    backgroundColor: '#fff',
+    margin: 20,
+    padding: 16,
     borderRadius: 16,
-    elevation: 3,
+    elevation: 2,
   },
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginRight: 10,
-  },
+  profileAvatar: { width: 64, height: 64, borderRadius: 32, marginRight: 12 },
   profileText: { flex: 1 },
   profileName: { fontSize: 16, fontWeight: '600', color: '#262A4F' },
-  profileDetails: { color: '#666', fontSize: 13 },
-  twoCards: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 18,
-    marginHorizontal: 14,
-  },
+  profileDetails: { fontSize: 13, color: '#8C91C1', marginTop: 2 },
+  twoCards: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 20 },
   bigCard: {
-    flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
+    flex: 0.48,
     borderRadius: 16,
-    padding: 18,
-    elevation: 3,
-    marginHorizontal: 4,
+    padding: 16,
+    elevation: 2,
   },
-  bigCardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#262A4F',
+  bigCardTitle: { fontSize: 15, fontWeight: '600', color: '#262A4F', marginTop: 8 },
+  bigCardSub: { color: '#8C91C1', fontSize: 13, marginTop: 4 },
+  rechargeBtn: {
+    backgroundColor: '#262A4F',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     marginTop: 10,
   },
-  bigCardSub: { fontSize: 13, color: '#666', marginTop: 4 },
-  rechargeBtn: { marginTop: 10 },
-  bigRechargeText: {
-    color: '#262A4F',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  bigAccentLink: {
-    color: '#A9ACD6',
-    fontWeight: '600',
-    fontSize: 13,
-    marginTop: 8,
-  },
+  bigRechargeText: { color: '#fff', textAlign: 'center', fontSize: 13 },
+  bigAccentLink: { color: '#61AFFE', fontSize: 13, marginTop: 6 },
   storyBanner: {
-    backgroundColor: COLORS.white,
-    marginTop: 20,
-    marginHorizontal: 14,
-    padding: 18,
+    backgroundColor: '#fff',
     borderRadius: 16,
+    margin: 20,
+    padding: 16,
     alignItems: 'center',
-    elevation: 3,
+    elevation: 2,
   },
   storyText: { fontSize: 15, fontWeight: '600', color: '#262A4F' },
-  followBtn: {
-    marginTop: 8,
+  socialRow: { flexDirection: 'row', marginTop: 12, gap: 12 },
+  socialIcon: {
     backgroundColor: '#262A4F',
-    paddingVertical: 8,
-    paddingHorizontal: 22,
+    width: 36,
+    height: 36,
     borderRadius: 18,
-  },
-  followText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  largeListItem: {
-    backgroundColor: COLORS.white,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    marginHorizontal: 14,
-    marginTop: 14,
+    justifyContent: 'center',
+  },
+  settingsCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
     borderRadius: 16,
-    elevation: 3,
-  },
-  listTextContainer: { flex: 1 },
-  listIconText: { flexDirection: 'row', alignItems: 'center' },
-  largeListTitle: { fontSize: 15, color: '#262A4F', fontWeight: '600' },
-  listSubAligned: { color: '#666', fontSize: 13, marginLeft: 28 },
-  logoutListItem: { marginTop: 20 },
-  logoutTitle: { color: '#D32F2F' },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  modalContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    elevation: 20,
-  },
-  profileImageContainer: {
+    padding: 16,
+    marginHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 8,
-  },
-  imageButtonRow: { flexDirection: 'row', gap: 8 },
-  addImageButton: {
-    backgroundColor: '#262A4F',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  addImageText: { color: '#fff', fontWeight: '600' },
-  deleteImageButton: {
-    backgroundColor: '#ccc',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  deleteImageText: { color: '#000', fontWeight: '600' },
-  detailBox: {
-    backgroundColor: '#f5f6fa',
-    borderRadius: 12,
-    padding: 10,
-    marginTop: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    elevation: 2,
   },
-  detailLabel: { fontWeight: '600', color: '#262A4F' },
-  detailValue: { color: '#333' },
-  editButton: {
-    marginTop: 14,
-    backgroundColor: '#262A4F',
-    paddingVertical: 10,
-    borderRadius: 10,
+  settingsTitle: { fontSize: 15, fontWeight: '600', color: '#262A4F' },
+  rewardsCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+    marginHorizontal: 20,
     alignItems: 'center',
+    elevation: 2,
   },
-  editButtonText: { color: '#fff', fontWeight: '700' },
+  rewardsText: { marginLeft: 10, fontSize: 15, color: '#262A4F', fontWeight: '500' },
+  logoutCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+    marginHorizontal: 20,
+    alignItems: 'center',
+    elevation: 2,
+  },
+  logoutText: { marginLeft: 10, fontSize: 15, color: '#262A4F', fontWeight: '500' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
+  modalContent: {
+    backgroundColor: '#fff',
+    marginHorizontal: 40,
+    padding: 20,
+    borderRadius: 16,
+    elevation: 5,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: '#262A4F', marginBottom: 12 },
+  modalOption: { fontSize: 14, color: '#61AFFE', marginVertical: 6 },
+  modalCancel: { fontSize: 14, color: '#FF3B30', marginTop: 10 },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+
+export default AccountScreen;

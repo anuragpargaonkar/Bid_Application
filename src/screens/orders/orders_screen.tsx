@@ -65,7 +65,6 @@ const OrderScreen: React.FC = () => {
 
   const [subTab, setSubTab] = useState<'InNego' | 'Lost'>('InNego');
 
-  // Refresh animation (same as WinZone)
   const refreshSpin = React.useRef(new Animated.Value(0)).current;
 
   const onRefreshPress = () => {
@@ -76,7 +75,6 @@ const OrderScreen: React.FC = () => {
       easing: Easing.inOut(Easing.linear),
       useNativeDriver: true,
     }).start(() => refreshSpin.setValue(0));
-    // Add your refresh logic here
   };
 
   const spin = refreshSpin.interpolate({
@@ -172,14 +170,17 @@ const OrderScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* WinZone Header – Identical to AddOnsScreen */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={22} color="#fff" />
-          </TouchableOpacity>
+          {/* Replaced back button with logo inside circle */}
+          <View style={styles.logoCircle}>
+            <Image
+              source={require('../../assets/images/logo1.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Orders</Text>
@@ -266,7 +267,6 @@ const COLORS = {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
 
-  /* ---------- HEADER (Exact WinZone Style) ---------- */
   header: {
     paddingBottom: 10,
     borderBottomLeftRadius: 26,
@@ -285,7 +285,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 18,
   },
-  backButton: {
+
+  /* New Logo Circle (replaces back button) */
+  logoCircle: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -293,6 +295,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoImage: {
+    width: 40,
+    height: 40,
+    tintColor: '#fff',
+  },
+
   headerCenter: {
     flex: 1,
     alignItems: 'center',
@@ -322,8 +330,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
   },
-
-  /* ---------- MAIN TABS ---------- */
   mainTabs: {
     flexDirection: 'row',
     marginTop: 16,
@@ -350,8 +356,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
   },
-
-  /* ---------- SUB TABS ---------- */
   subTabsContainer: {
     alignItems: 'center',
     marginTop: 16,
@@ -381,8 +385,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
   },
-
-  /* ---------- CONTENT ---------- */
   emptyStateContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -413,7 +415,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: responsive(16),
   },
-
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -438,14 +439,18 @@ const styles = StyleSheet.create({
     height: responsive(60),
     borderRadius: responsive(8),
   },
-  carTitle: { fontSize: responsive(15), fontWeight: '600', color: COLORS.primary },
-  carPrice: { color: '#000', marginVertical: responsive(4), fontWeight: '700' },
-  carId: { fontSize: responsive(12), color: '#777' },
-
-  procuredContainer: {
-    flex: 1,
-    padding: responsive(16),
+  carTitle: {
+    fontSize: responsive(15),
+    fontWeight: '600',
+    color: COLORS.primary,
   },
+  carPrice: {
+    color: '#000',
+    marginVertical: responsive(4),
+    fontWeight: '700',
+  },
+  carId: { fontSize: responsive(12), color: '#777' },
+  procuredContainer: { flex: 1, padding: responsive(16) },
   procuredBox: {
     backgroundColor: '#fff',
     borderRadius: responsive(12),

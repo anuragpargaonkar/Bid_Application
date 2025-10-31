@@ -1,4 +1,4 @@
-// src/screens/Home/MyCarsScreen.tsx - UPDATED WITH WISHLIST SYNC
+// src/screens/Home/MyCarsScreen.tsx - FIXED WISHLIST BADGE
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -265,6 +265,9 @@ const MyCarsScreen = ({ navigation }: any) => {
     outputRange: ["0deg", "360deg"],
   });
 
+  // Calculate wishlist count from filtered live cars
+  const wishlistCount = filteredLiveCars.filter((c) => isWishlisted(c.id)).length;
+
   const dataToShow =
     selectedTab === "Wishlist"
       ? filteredLiveCars.filter((c) => isWishlisted(c.id))
@@ -350,11 +353,16 @@ const MyCarsScreen = ({ navigation }: any) => {
       {/* Header – Same as WinZone (AddOnsScreen) */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
+          {/* Logo instead of back button */}
           <TouchableOpacity
-            style={styles.backButton}
+            style={styles.logoButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={22} color="#fff" />
+            <Image
+              source={require("../../assets/images/logo1.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
@@ -391,9 +399,10 @@ const MyCarsScreen = ({ navigation }: any) => {
             >
               {tab}
             </Text>
-            {tab === "Wishlist" && wishlist.size > 0 && (
+            {/* FIXED: Only show badge when wishlistCount > 0 */}
+            {tab === "Wishlist" && wishlistCount > 0 && (
               <View style={styles.wishlistBadge}>
-                <Text style={styles.wishlistBadgeText}>{wishlist.size}</Text>
+                <Text style={styles.wishlistBadgeText}>{wishlistCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -403,17 +412,17 @@ const MyCarsScreen = ({ navigation }: any) => {
       {/* Car List */}
       {dataToShow.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons 
-            name={selectedTab === "Wishlist" ? "heart-outline" : "car-outline"} 
-            size={80} 
-            color="#a9acd6" 
+          <Ionicons
+            name={selectedTab === "Wishlist" ? "heart-outline" : "car-outline"}
+            size={80}
+            color="#a9acd6"
           />
           <Text style={styles.emptyTitle}>
             {selectedTab === "Wishlist" ? "No wishlisted cars" : "No cars available"}
           </Text>
           <Text style={styles.emptySubtitle}>
-            {selectedTab === "Wishlist" 
-              ? "Add cars to your wishlist by tapping the heart icon" 
+            {selectedTab === "Wishlist"
+              ? "Add cars to your wishlist by tapping the heart icon"
               : "Start exploring and bid your favorite cars now!"}
           </Text>
         </View>
@@ -465,13 +474,18 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 18,
   },
-  backButton: {
+  logoButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: COLORS.primary,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
+  },
+  logoImage: {
+    width: 40,
+    height: 40,
   },
   headerCenter: {
     flex: 1,

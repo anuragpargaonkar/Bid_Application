@@ -1,4 +1,4 @@
-// HomeScreen.tsx - FINAL OPTIMIZED VERSION (Bid Loading Fixed)
+// HomeScreen.tsx - FINAL OPTIMIZED VERSION (Bid Loading Fixed) + LOGO INSTEAD OF PROFILE + LOCATION REMOVED
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
@@ -16,8 +16,6 @@ import {
   StatusBar,
   Animated,
   Easing,
-  PermissionsAndroid,
-  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -27,7 +25,6 @@ import {useRoute, RouteProp} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 import {useWishlist} from '../../context/WishlistContext';
-import Geolocation from '@react-native-community/geolocation';
 
 interface Car {
   id: string;
@@ -80,7 +77,6 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 const TOKEN_KEY = 'auth_token';
 const USER_ID_KEY = 'user_id';
 const AUCTION_DURATION_MS = 30 * 60 * 1000;
-const DEFAULT_LOCATION = 'Mumbai, India';
 
 const HomeScreen: React.FC = () => {
   const {wishlist, toggleWishlist, isWishlisted} = useWishlist();
@@ -110,8 +106,6 @@ const HomeScreen: React.FC = () => {
   const [bidAmounts, setBidAmounts] = useState<{[bidCarId: string]: string}>({});
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showLowBalanceWarning, setShowLowBalanceWarning] = useState(true);
-  const [currentLocation, setCurrentLocation] = useState<string>(DEFAULT_LOCATION);
-  const [locationLoading, setLocationLoading] = useState(true);
 
   // NEW: Cache price when opening bid modal
   const [bidModalPriceCache, setBidModalPriceCache] = useState<{[bidCarId: string]: number}>({});
@@ -130,59 +124,6 @@ const HomeScreen: React.FC = () => {
     connectionError,
     connectionStatus,
   } = useWebSocket();
-
-  // === LOCATION LOGIC ===
-  const getCurrentLocation = useCallback(async () => {
-    const requestPermission = async () => {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Permission',
-            message: 'This app needs location access to show your current city.',
-            buttonPositive: 'OK',
-          },
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      }
-      return true;
-    };
-
-    const hasPermission = await requestPermission();
-    if (!hasPermission) {
-      setCurrentLocation(DEFAULT_LOCATION);
-      setLocationLoading(false);
-      return;
-    }
-
-    Geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await response.json();
-          const city = data.address?.city || data.address?.town || data.address?.village || 'Mumbai';
-          const country = data.address?.country || 'India';
-          setCurrentLocation(`${city}, ${country}`);
-        } catch (error) {
-          setCurrentLocation(DEFAULT_LOCATION);
-        } finally {
-          setLocationLoading(false);
-        }
-      },
-      () => {
-        setCurrentLocation(DEFAULT_LOCATION);
-        setLocationLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-    );
-  }, []);
-
-  useEffect(() => {
-    getCurrentLocation();
-  }, [getCurrentLocation]);
 
   // === NOTIFICATION SYSTEM ===
   const showNotification = useCallback((car: Car, type: 'bid' | 'outbid' | 'won' | 'time') => {
@@ -502,7 +443,6 @@ const HomeScreen: React.FC = () => {
     setCarDetailsModalVisible(true);
   };
 
-  // FIXED: Only one fetch, cache price
   const openBidModal = async (bidCarId: string) => {
     try {
       const priceData = await fetchLivePrice(bidCarId);
@@ -531,7 +471,6 @@ const HomeScreen: React.FC = () => {
   useEffect(() => {
     if (!modalVisible) {
       bidInitializedRef.current = null;
-      // Optional: clear cache on close
       if (selectedCar) {
         setBidModalPriceCache(prev => {
           const updated = { ...prev };
@@ -571,7 +510,6 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  // FIXED: Use cached price, no extra fetch
   const handlePlaceBid = async () => {
     if (!token || !userId || !selectedCar) {
       Alert.alert('Error', 'Please login to place a bid.');
@@ -984,21 +922,12 @@ const HomeScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.profileSection}>
+              {/* LOGO */}
               <Image
-                source={{
-                  uri: userInfo?.profileImage || 'https://i.pravatar.cc/100',
-                }}
-                style={styles.profileImage}
+                source={require('../../assets/images/logo1.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
               />
-              <View style={styles.locationContainer}>
-                <View style={styles.locationRow}>
-                  <Ionicons name="location-sharp" size={14} color="#a9acd6" />
-                  <Text style={styles.locationLabel}>
-                    {locationLoading ? 'Fetching...' : currentLocation}
-                  </Text>
-                  <Ionicons name="chevron-down" size={14} color="#a9acd6" />
-                </View>
-              </View>
             </View>
             <TouchableOpacity style={styles.notificationIcon} onPress={handleNotificationClick}>
               <Ionicons
@@ -1187,30 +1116,19 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: '#262a4f'},
   gradientBackground: {flex: 1},
-  header: {paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20},
+  header: {paddingHorizontal: 20, paddingTop: 15, paddingBottom: 20},
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  profileSection: {flexDirection: 'row', alignItems: 'center', gap: 12},
-  profileImage: {
+  profileSection: {flexDirection: 'row', alignItems: 'center'},
+  logoImage: {
     width: 50,
     height: 50,
-    borderRadius: 25,
-    borderWidth: 3,
-    borderColor: '#a9acd6',
   },
-  locationContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    right: 20,
-  },
-  locationRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
-  locationLabel: {color: '#a9acd6', fontSize: 13, fontWeight: '600'},
-  notificationIcon: {position: 'relative', right: 20},
+  notificationIcon: {position: 'relative'},
   notificationBadge: {
     position: 'absolute',
     top: 2,
@@ -1395,10 +1313,10 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     letterSpacing: -0.3,
   },
+  locationRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
   locationTextSmall: {
     fontSize: 13,
     color: '#6B7280',
-    marginLeft: 6,
     fontWeight: '600',
   },
   carInfo: {fontSize: 13, color: '#9CA3AF', marginTop: 6, fontWeight: '500'},
@@ -1581,6 +1499,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+    width: '110%',
   },
   confirmButtonText: {
     color: '#262a4f',
@@ -1602,6 +1521,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 12,
+    height: 70,
   },
   warningIconText: {flexDirection: 'row', alignItems: 'center', flex: 1},
   warningTitle: {

@@ -1,5 +1,5 @@
 // src/screens/Home/AddOnsScreen.tsx
- 
+
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -18,13 +18,14 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
- 
+
 const { width } = Dimensions.get('window');
- 
+
 interface FinalBid {
   finalBidId: number;
   bidCarId: number;
@@ -35,7 +36,7 @@ interface FinalBid {
   createdAt?: string;
   updatedAt?: string;
 }
- 
+
 const COLORS = {
   primary: '#262a4f',
   secondary: '#a9acd6',
@@ -44,7 +45,7 @@ const COLORS = {
   textDark: '#0F172A',
   textGray: '#374151',
 };
- 
+
 const AddOnsScreen: React.FC = () => {
   const navigation = useNavigation();
   const [finalBids, setFinalBids] = useState<FinalBid[]>([]);
@@ -55,37 +56,37 @@ const AddOnsScreen: React.FC = () => {
   const [selectedBid, setSelectedBid] = useState<FinalBid | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(true);
- 
+
   const flatListRef = useRef<FlatList<FinalBid>>(null);
- 
+
   // animations
   const itemAnims = useRef<Animated.Value[]>([]);
   const modalAnim = useRef(new Animated.Value(0)).current;
   const refreshSpin = useRef(new Animated.Value(0)).current;
- 
+
   const ITEMS_PER_PAGE = 6;
- 
+
   useEffect(() => {
     fetchFinalBids();
   }, []);
- 
+
   useEffect(() => {
     itemAnims.current = displayedBids.map(() => new Animated.Value(0));
     animateListIn();
   }, [displayedBids]);
- 
+
   const fetchFinalBids = async () => {
     try {
       setLoading(true);
       setError(null);
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) throw new Error('No auth token found');
- 
+
       const response = await fetch('https://caryanamindia.prodchunca.in.net/Bid/finalBids', {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
- 
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const json = await response.json();
       const bids = json.finalBids || [];
@@ -102,7 +103,7 @@ const AddOnsScreen: React.FC = () => {
       setLoading(false);
     }
   };
- 
+
   const loadMore = () => {
     if (loading) return;
     const nextPage = page + 1;
@@ -113,7 +114,7 @@ const AddOnsScreen: React.FC = () => {
       setPage(nextPage);
     }
   };
- 
+
   const animateListIn = () => {
     const animations = itemAnims.current.map((anim, i) =>
       Animated.timing(anim, {
@@ -126,7 +127,7 @@ const AddOnsScreen: React.FC = () => {
     );
     Animated.stagger(60, animations).start();
   };
- 
+
   const onRefreshPress = () => {
     refreshSpin.setValue(0);
     Animated.timing(refreshSpin, {
@@ -137,7 +138,7 @@ const AddOnsScreen: React.FC = () => {
     }).start(() => refreshSpin.setValue(0));
     fetchFinalBids();
   };
- 
+
   const openDetails = (bid: FinalBid) => {
     setSelectedBid(bid);
     setModalVisible(true);
@@ -149,7 +150,7 @@ const AddOnsScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
   };
- 
+
   const closeModal = () => {
     Animated.timing(modalAnim, {
       toValue: 0,
@@ -161,30 +162,26 @@ const AddOnsScreen: React.FC = () => {
       setSelectedBid(null);
     });
   };
- 
+
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const distanceFromBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
-    if (distanceFromBottom < 60) {
-      setShowScrollButton(false);
-    } else {
-      setShowScrollButton(true);
-    }
+    setShowScrollButton(distanceFromBottom >= 60);
   };
- 
+
   const scrollToBottom = () => {
     if (flatListRef.current && finalBids.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   };
- 
+
   const spin = refreshSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
- 
+
   const renderBidCard = ({ item, index }: { item: FinalBid; index: number }) => {
     const anim = itemAnims.current[index] || new Animated.Value(1);
     const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
     const opacity = anim;
- 
+
     return (
       <Animated.View style={[styles.card, { transform: [{ translateY }], opacity }]}>
         <TouchableOpacity activeOpacity={0.95} onPress={() => openDetails(item)} style={{ flex: 1 }}>
@@ -198,7 +195,7 @@ const AddOnsScreen: React.FC = () => {
               <Text style={styles.priceValue}>₹{item.price.toLocaleString('en-IN')}</Text>
             </View>
           </View>
- 
+
           <View style={styles.cardBody}>
             <View style={styles.detailRowSmall}>
               <Text style={styles.smallLabel}>Buyer Dealer</Text>
@@ -217,24 +214,26 @@ const AddOnsScreen: React.FC = () => {
       </Animated.View>
     );
   };
- 
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Back Button - No Zoom Animation */}
+      {/* Header with Logo */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="arrow-back" size={22} color="#fff" />
-          </TouchableOpacity>
-          
+          {/* Circular Logo */}
+          <View style={styles.logoCircle}>
+            <Image
+              source={require('../../assets/images/logo1.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>WinZone</Text>
             <Text style={styles.subTitle}>Latest auction winners</Text>
           </View>
- 
+
           <TouchableOpacity activeOpacity={0.85} onPress={onRefreshPress}>
             <Animated.View style={[styles.refreshButton, { transform: [{ rotate: spin }] }]}>
               <Text style={styles.refreshIcon}>⟳</Text>
@@ -242,7 +241,7 @@ const AddOnsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
- 
+
       {/* Content */}
       <View style={styles.contentWrap}>
         {loading ? (
@@ -270,14 +269,14 @@ const AddOnsScreen: React.FC = () => {
           />
         )}
       </View>
- 
+
       {/* Floating Scroll Button */}
       {showScrollButton && displayedBids.length > 0 && (
         <TouchableOpacity style={styles.scrollButton} onPress={scrollToBottom}>
           <Icon name="arrow-down" size={24} color="#fff" />
         </TouchableOpacity>
       )}
- 
+
       {/* Modal */}
       <Modal visible={modalVisible} transparent animationType="none" onRequestClose={closeModal}>
         <Animated.View style={[styles.modalOverlay, { opacity: modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }) }]}>
@@ -293,7 +292,7 @@ const AddOnsScreen: React.FC = () => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Car Details</Text>
             </View>
- 
+
             <ScrollView contentContainerStyle={styles.modalContent}>
               {selectedBid ? (
                 <>
@@ -324,7 +323,7 @@ const AddOnsScreen: React.FC = () => {
                 <Text style={styles.modalValue}>No details available.</Text>
               )}
             </ScrollView>
- 
+
             <Pressable style={styles.closeButton} onPress={closeModal}>
               <Text style={styles.closeButtonText}>Close</Text>
             </Pressable>
@@ -334,12 +333,12 @@ const AddOnsScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
- 
+
 export default AddOnsScreen;
- 
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  
+
   header: {
     paddingBottom: 10,
     borderBottomLeftRadius: 26,
@@ -358,7 +357,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 18,
   },
-  backButton: {
+  logoCircle: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -366,20 +365,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logo: {
+    width: 40,
+    height: 40,
+  },
   headerCenter: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 10,
   },
-  headerTitle: { 
-    fontSize: 20, 
-    color: COLORS.primary, 
+  headerTitle: {
+    fontSize: 20,
+    color: COLORS.primary,
     fontWeight: '700',
   },
-  subTitle: { 
-    color: COLORS.secondary, 
-    fontSize: 12, 
+  subTitle: {
+    color: COLORS.secondary,
+    fontSize: 12,
     marginTop: 2,
   },
   refreshButton: {
@@ -391,7 +394,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   refreshIcon: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
-  
   contentWrap: { flex: 1 },
   listContent: { padding: 16, paddingBottom: 96 },
   card: {

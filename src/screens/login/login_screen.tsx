@@ -1,4 +1,4 @@
-// Login.tsx - FINAL (Background #051A2F + Eye Icon + Centered Title + Full Curved Card)
+// Login.tsx - FINAL (Background #051A2F + Eye Icon + Centered Logo + Full Curved Card)
 
 import React, {useState} from 'react';
 import {
@@ -11,6 +11,7 @@ import {
   Dimensions,
   StatusBar,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -113,7 +114,11 @@ const Login = () => {
           token = data;
         }
       } catch (jsonError) {
-        if (responseText && responseText.length > 100 && responseText.includes('.')) {
+        if (
+          responseText &&
+          responseText.length > 100 &&
+          responseText.includes('.')
+        ) {
           token = responseText;
         }
       }
@@ -164,9 +169,13 @@ const Login = () => {
       style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#051A2F" />
 
-      {/* Top Curved Section */}
+      {/* Top Curved Section with Logo */}
       <View style={styles.topCurvedSection}>
-        <Text style={styles.title}>Login</Text>
+        <Image
+          source={require('../../assets/images/logo1.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
 
       {/* White Full Curved Card Section */}
@@ -242,13 +251,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: '700',
-    borderBottomWidth: 3,
-    borderBottomColor: '#fff',
-    paddingBottom: 5,
+  logo: {
+    width: 150,
+    height: 100,
   },
 
   cardContainer: {
@@ -256,7 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 40,
     marginHorizontal: 20,
-    marginBottom: 200,
+    marginBottom: 150,
     paddingTop: 40,
     paddingHorizontal: 30,
     elevation: 15,
