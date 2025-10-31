@@ -3147,6 +3147,7 @@ __metadata:
     react-native-linear-gradient: ^2.8.3
     react-native-safe-area-context: ^5.6.1
     react-native-screens: ^4.16.0
+    react-native-size-matters: ^0.4.2
     react-native-vector-icons: ^10.3.0
     react-test-renderer: 19.0.0
     sockjs-client: ^1.6.1
@@ -8557,6 +8558,15 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 71bebbead1d8f886b80b70cf9d69b0179e035fb425fae84fbcbb2930167220cb90c2ee70b26d3fd94f940fa3e6ce325b0ec2e283d039d5abb29bf6898c58e485
+  languageName: node
+  linkType: hard
+
+"react-native-size-matters@npm:^0.4.2":
+  version: 0.4.2
+  resolution: "react-native-size-matters@npm:0.4.2"
+  peerDependencies:
+    react-native: "*"
+  checksum: 65dac50cad8d03bd046c62e327edf1c162c650fa3320613343bb978ca4b83c8e4e61b0f528502a154a1d4e4baa6dc296799a57737177e3d3c77b64750f5d8076
   languageName: node
   linkType: hard
 

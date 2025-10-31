@@ -1,4 +1,4 @@
-// Login.tsx - FINAL (Background #051A2F + Eye Icon + Centered Logo + Full Curved Card)
+// Login.tsx - FINAL (Dealer validation + Centered Logo + Curved Card)
 
 import React, {useState} from 'react';
 import {
@@ -25,6 +25,8 @@ const {width, height} = Dimensions.get('window');
 const TOKEN_KEY = 'auth_token';
 const USER_ID_KEY = 'user_id';
 const USER_EMAIL_KEY = 'user_email';
+const DEALER_ID_KEY = 'dealerId';
+const USER_DATA_KEY = 'userData';
 
 type RootStackParamList = {
   Login: undefined;
@@ -50,11 +52,36 @@ const Login = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const {connectWebSocket} = useWebSocket();
 
-  const storeAuthData = async (token: string, userId: string, email: string) => {
+  const storeAuthData = async (
+    token: string,
+    userId: string,
+    email: string,
+    dealerId: string | null,
+    fullUserData: any,
+  ) => {
     try {
       await AsyncStorage.setItem(TOKEN_KEY, token);
       await AsyncStorage.setItem(USER_ID_KEY, userId);
       await AsyncStorage.setItem(USER_EMAIL_KEY, email);
+
+      if (dealerId) {
+        await AsyncStorage.setItem(DEALER_ID_KEY, dealerId);
+        console.log('✅ Dealer ID stored:', dealerId);
+      } else {
+        console.warn('⚠️ No dealer ID found in login response');
+      }
+
+      await AsyncStorage.setItem(
+        USER_DATA_KEY,
+        JSON.stringify({
+          id: userId,
+          userId: userId,
+          email: email,
+          dealerId: dealerId,
+          ...fullUserData,
+        }),
+      );
+
       console.log('✅ Auth data stored successfully');
     } catch (error) {
       console.error('❌ Error storing auth data:', error);
@@ -104,56 +131,73 @@ const Login = () => {
       );
 
       const responseText = await response.text();
+      console.log('=== LOGIN RESPONSE ===');
+      console.log('Response text:', responseText);
 
       let token: string | null = null;
       try {
         const data = JSON.parse(responseText);
-        if (data.token) {
-          token = data.token;
-        } else if (typeof data === 'string' && data.length > 100) {
-          token = data;
-        }
-      } catch (jsonError) {
-        if (
-          responseText &&
-          responseText.length > 100 &&
-          responseText.includes('.')
-        ) {
+        if (data.token) token = data.token;
+        else if (typeof data === 'string' && data.length > 100) token = data;
+      } catch {
+        if (responseText && responseText.length > 100 && responseText.includes('.')) {
           token = responseText;
         }
       }
 
       if (response.ok && token) {
         const decodedToken = parseJwt(token);
-        const userId = decodedToken?.userId || decodedToken?.sub || username;
+        const userId =
+          decodedToken?.userId ||
+          decodedToken?.sub ||
+          decodedToken?.id ||
+          username;
         const userEmail = decodedToken?.email || username;
 
-        await storeAuthData(token, userId, userEmail);
+        const dealerId =
+          decodedToken?.dealerId ||
+          decodedToken?.dealer_id ||
+          decodedToken?.dealerID ||
+          decodedToken?.DealerId ||
+          decodedToken?.dealer ||
+          null;
 
-        Alert.alert('Success', 'Login Successful! Connecting to live bids...');
+        console.log('User ID:', userId);
+        console.log('Dealer ID:', dealerId);
+
+        // Always store auth data and connect WebSocket
+        await storeAuthData(token, userId, userEmail, dealerId, decodedToken);
         connectWebSocket(token);
 
+        // 🔒 Check dealer access
+        if (!dealerId) {
+          Alert.alert('Access Denied', 'You are not a dealer. Only dealers can log in.');
+          setLoading(false);
+          return;
+        }
+
+        // ✅ Dealer can continue to Home
+        Alert.alert('Success', 'Login Successful! Connecting to live bids...');
         setTimeout(() => {
           navigation.navigate('Home', {
             token: token,
             userId: userId,
             userInfo: decodedToken,
           });
-        }, 1500);
+        }, 1000);
       } else {
         let errorMessage = 'Invalid credentials';
         try {
           const errorData = JSON.parse(responseText);
           errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (e) {
+        } catch {
           if (responseText && responseText.length < 100) {
             errorMessage = responseText;
           }
         }
-
         Alert.alert('Login Failed', errorMessage);
       }
-    } catch (error: any) {
+    } catch (error) {
       Alert.alert(
         'Connection Error',
         'Unable to connect to server. Please check your internet connection.',
@@ -169,7 +213,7 @@ const Login = () => {
       style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#051A2F" />
 
-      {/* Top Curved Section with Logo */}
+      {/* Top Curved Section with Centered Logo */}
       <View style={styles.topCurvedSection}>
         <Image
           source={require('../../assets/images/logo1.png')}
@@ -244,7 +288,6 @@ const Login = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
-
   topCurvedSection: {
     paddingTop: 150,
     paddingBottom: 40,
@@ -255,7 +298,6 @@ const styles = StyleSheet.create({
     width: 150,
     height: 100,
   },
-
   cardContainer: {
     flex: 1,
     backgroundColor: '#fff',
@@ -287,30 +329,11 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 15,
   },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  eyeIconFront: {
-    position: 'absolute',
-    right: 15,
-    top: 15,
-    zIndex: 1,
-  },
-  passwordInput: {
-    paddingLeft: 10,
-    flex: 1,
-  },
-  forgotContainer: {
-    alignItems: 'flex-end',
-    marginTop: -10,
-    marginBottom: 15,
-  },
-  forgotText: {
-    color: '#61AFFE',
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  passwordContainer: {flexDirection: 'row', alignItems: 'center'},
+  eyeIconFront: {position: 'absolute', right: 15, top: 15, zIndex: 1},
+  passwordInput: {paddingLeft: 10, flex: 1},
+  forgotContainer: {alignItems: 'flex-end', marginTop: -10, marginBottom: 15},
+  forgotText: {color: '#61AFFE', fontSize: 14, fontWeight: '500'},
   loginButton: {
     backgroundColor: '#61AFFE',
     borderRadius: 12,

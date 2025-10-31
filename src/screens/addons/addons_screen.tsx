@@ -1,28 +1,25 @@
-// src/screens/Home/AddOnsScreen.tsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
   Modal,
   Pressable,
   ScrollView,
-  Dimensions,
   Animated,
   Easing,
-  Platform,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   SafeAreaView,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import styles, { COLORS } from './AddOns.styles'; // ✅ Imported styles
 
 const { width } = Dimensions.get('window');
 
@@ -37,15 +34,6 @@ interface FinalBid {
   updatedAt?: string;
 }
 
-const COLORS = {
-  primary: '#262a4f',
-  secondary: '#a9acd6',
-  background: '#f5f6fa',
-  white: '#FFFFFF',
-  textDark: '#0F172A',
-  textGray: '#374151',
-};
-
 const AddOnsScreen: React.FC = () => {
   const navigation = useNavigation();
   const [finalBids, setFinalBids] = useState<FinalBid[]>([]);
@@ -59,7 +47,6 @@ const AddOnsScreen: React.FC = () => {
 
   const flatListRef = useRef<FlatList<FinalBid>>(null);
 
-  // animations
   const itemAnims = useRef<Animated.Value[]>([]);
   const modalAnim = useRef(new Animated.Value(0)).current;
   const refreshSpin = useRef(new Animated.Value(0)).current;
@@ -217,16 +204,10 @@ const AddOnsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Logo */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
-          {/* Circular Logo */}
           <View style={styles.logoCircle}>
-            <Image
-              source={require('../../assets/images/logo1.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
           </View>
 
           <View style={styles.headerCenter}>
@@ -242,7 +223,6 @@ const AddOnsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Content */}
       <View style={styles.contentWrap}>
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
@@ -270,14 +250,12 @@ const AddOnsScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Floating Scroll Button */}
       {showScrollButton && displayedBids.length > 0 && (
         <TouchableOpacity style={styles.scrollButton} onPress={scrollToBottom}>
           <Icon name="arrow-down" size={24} color="#fff" />
         </TouchableOpacity>
       )}
 
-      {/* Modal */}
       <Modal visible={modalVisible} transparent animationType="none" onRequestClose={closeModal}>
         <Animated.View style={[styles.modalOverlay, { opacity: modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }) }]}>
           <Animated.View
@@ -335,137 +313,3 @@ const AddOnsScreen: React.FC = () => {
 };
 
 export default AddOnsScreen;
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-
-  header: {
-    paddingBottom: 10,
-    borderBottomLeftRadius: 26,
-    borderBottomRightRadius: 26,
-    elevation: 8,
-    backgroundColor: COLORS.white,
-    shadowColor: '#64748B',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    paddingBottom: 16,
-    paddingHorizontal: 18,
-  },
-  logoCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logo: {
-    width: 40,
-    height: 40,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  subTitle: {
-    color: COLORS.secondary,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  refreshButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  refreshIcon: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
-  contentWrap: { flex: 1 },
-  listContent: { padding: 16, paddingBottom: 96 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 14,
-    elevation: 6,
-    shadowColor: '#64748B',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  cardHeader: {
-    backgroundColor: COLORS.primary,
-    padding: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  carIdText: { color: COLORS.secondary, fontSize: 11, fontWeight: '700' },
-  carIdNumber: { color: '#fff', fontSize: 18, fontWeight: '900', marginTop: 2 },
-  priceLabel: { color: COLORS.secondary, fontSize: 12 },
-  priceValue: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 4 },
-  cardBody: { padding: 12, backgroundColor: '#FBFDFF' },
-  detailRowSmall: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#EEF2FF',
-  },
-  smallLabel: { fontSize: 13, color: COLORS.textGray, fontWeight: '600' },
-  smallValue: { fontSize: 13, color: COLORS.textDark, fontWeight: '700' },
-  scrollButton: {
-    position: 'absolute',
-    bottom: 25,
-    right: 25,
-    backgroundColor: COLORS.primary,
-    width: 55,
-    height: 55,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#64748B',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  emptyState: { alignItems: 'center', marginTop: 40 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: COLORS.primary, marginTop: 8 },
-  emptySub: { fontSize: 13, color: '#777', marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(4,6,10,0.45)', alignItems: 'center', justifyContent: 'center' },
-  modalContainer: { width: width * 0.94, backgroundColor: COLORS.white, borderRadius: 18, overflow: 'hidden' },
-  modalHeader: { paddingVertical: 14, alignItems: 'center', backgroundColor: COLORS.primary },
-  modalTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  modalContent: { paddingHorizontal: 18, paddingVertical: 16 },
-  modalDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E6EEF8',
-  },
-  modalLabel: { fontSize: 14, color: COLORS.textGray, fontWeight: '700' },
-  modalValue: { fontSize: 14, color: COLORS.textDark, fontWeight: '600' },
-  closeButton: {
-    margin: 18,
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  closeButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  errorText: { color: 'red', textAlign: 'center', marginTop: 20 },
-});
