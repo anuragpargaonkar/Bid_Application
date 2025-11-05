@@ -1,4 +1,4 @@
-// ForgotPassword.tsx - FINAL (Green Theme + Full Curved Card)
+// ForgotPassword.tsx - FINAL (Blue Theme Matching Login + Centered Logo + Full Curved Card)
 
 import React, { useState } from 'react';
 import {
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Dimensions,
   StatusBar,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -83,18 +84,23 @@ const ForgotPassword = () => {
 
   return (
     <LinearGradient
-      colors={['#1a4d3e', '#2d5f4f', '#1a4d3e']}
+      colors={['#051A2F', '#051A2F', '#051A2F']}
       style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1a4d3e" />
+      <StatusBar barStyle="light-content" backgroundColor="#051A2F" />
 
-      {/* Top Section */}
+      {/* Top Section with Centered Logo */}
       <View style={styles.topCurvedSection}>
-        <Text style={styles.title}>Forgot Password</Text>
+        <Image
+          source={require('../assets/images/logo1.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
 
       {/* Full Curved White Card */}
       <View style={styles.cardContainer}>
         <View style={styles.content}>
+          <Text style={styles.title}>Forgot Password</Text>
           <Text style={styles.label}>Enter your email</Text>
           <TextInput
             placeholder="Email"
@@ -138,13 +144,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '700',
-    borderBottomWidth: 3,
-    borderBottomColor: '#fff',
-    paddingBottom: 5,
+  logo: {
+    width: 150,
+    height: 100,
   },
 
   cardContainer: {
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 40,
     marginHorizontal: 20,
-    marginBottom: 300,
+    marginBottom: 180,
     paddingTop: 40,
     paddingHorizontal: 30,
     elevation: 15,
@@ -163,6 +165,13 @@ const styles = StyleSheet.create({
   },
 
   content: { flex: 1, justifyContent: 'flex-start' },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#051A2F',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
   label: {
     fontSize: 16,
     marginBottom: 8,
@@ -180,12 +189,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   button: {
-    backgroundColor: '#5a8a74',
+    backgroundColor: '#1B4F72',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     elevation: 3,
-    shadowColor: '#5a8a74',
+    shadowColor: '#1B4F72',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
@@ -193,7 +202,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16, letterSpacing: 1 },
   backButton: { marginTop: 25, alignItems: 'center' },
-  backText: { color: '#1a4d3e', fontWeight: '500', fontSize: 14 },
+  backText: { color: '#051A2F', fontWeight: '500', fontSize: 14 },
 });
 
 export default ForgotPassword;

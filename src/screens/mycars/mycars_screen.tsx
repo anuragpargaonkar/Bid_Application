@@ -669,9 +669,20 @@ const MyCarsScreen = ({navigation}: any) => {
                       size={18}
                       color="#4caf50"
                     />
-                    <Text style={styles.locationText}>
-                      View Inspection Report
-                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const id =
+                          selectedCar?.beadingCarId ||
+                          selectedCar?.bidCarId ||
+                          selectedCar?.id;
+                        navigation.navigate('InspectionReport', {
+                          beadingCarId: id,
+                        });
+                      }}>
+                      <Text style={styles.locationText}>
+                        View Inspection Report
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </ScrollView>

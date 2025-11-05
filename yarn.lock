@@ -3149,6 +3149,7 @@ __metadata:
     react-native-screens: ^4.16.0
     react-native-size-matters: ^0.4.2
     react-native-vector-icons: ^10.3.0
+    react-native-video: ^6.17.0
     react-test-renderer: 19.0.0
     sockjs-client: ^1.6.1
     typescript: 5.0.4
@@ -8582,6 +8583,16 @@ __metadata:
     fa6-upgrade: bin/fa6-upgrade.sh
     generate-icon: bin/generate-icon.js
   checksum: 5c431fd9a8e6efd355e34ed28ca7fa7eed30e89362280cbd1e474e6d16148c6c37f5c950a525ec0b428c79dc74b9fb7a61171fc509b6ab253e111456f3e49b71
+  languageName: node
+  linkType: hard
+
+"react-native-video@npm:^6.17.0":
+  version: 6.17.0
+  resolution: "react-native-video@npm:6.17.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 36cb907b9d96aabe5878214a3be3d1b70fdc504e5e8f9276d892a8e76dc8cfc98c48223ea99b5e1f70e5da547a0047b9a82d9406bd3996897ff421a52ea98656
   languageName: node
   linkType: hard
 

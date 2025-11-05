@@ -6,6 +6,7 @@ import LoginScreen from '../screens/login/login_screen';
 import BottomNavigationScreen from '../components/BottomNavigation/bottomnavigation_screen';
 import SignUpScreen from '../screens/signup/signup_screen';
 import ForgotPasswordScreen from '../utility/ForgotPassword'; // 👈 new screen
+import InspectionReport from '../screens/mycars/InspectionReport';
  
 /**
  * Define the navigation stack parameter list.
@@ -15,6 +16,8 @@ export type RootStackParamList = {
   Home: undefined;
   SignUp: undefined;
   ForgotPassword: undefined; // 👈 add route here
+  InspectionReport: { beadingCarId: string }; // ✅ add this
+
 };
  
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,6 +29,7 @@ const AppNavigator = () => {
       <Stack.Screen name="Home" component={BottomNavigationScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="InspectionReport" component={InspectionReport} />
     </Stack.Navigator>
   );
 };

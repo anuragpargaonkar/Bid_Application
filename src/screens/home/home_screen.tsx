@@ -20,7 +20,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import {useWebSocket} from '../../utility/WebSocketConnection';
-import {useRoute, RouteProp} from '@react-navigation/native';
+import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 import {useWishlist} from '../../context/WishlistContext';
@@ -70,6 +70,7 @@ type RootStackParamList = {
   Login: undefined;
   Home: {token: string; userId: string; userInfo: any};
   ForgotPassword: undefined;
+  InspectionReport: {beadingCarId: string};
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -79,6 +80,7 @@ const USER_ID_KEY = 'user_id';
 const AUCTION_DURATION_MS = 30 * 60 * 1000;
 
 const HomeScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const {wishlist, toggleWishlist, isWishlisted} = useWishlist();
   const [activeTab, setActiveTab] = useState<'LIVE' | 'OCB'>('LIVE');
   const [refreshing, setRefreshing] = useState(false);
@@ -107,7 +109,6 @@ const HomeScreen: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showLowBalanceWarning, setShowLowBalanceWarning] = useState(true);
 
-  // NEW: Cache price when opening bid modal
   const [bidModalPriceCache, setBidModalPriceCache] = useState<{[bidCarId: string]: number}>({});
 
   const bidInitializedRef = useRef<string | null>(null);
@@ -799,11 +800,21 @@ const HomeScreen: React.FC = () => {
                 <Ionicons name="home" size={18} color="#10B981" />
                 <Text style={styles.testDriveText}>Home Test Drive Available</Text>
               </View>
-              <TouchableOpacity style={styles.inspectionReportButton}>
+
+              {/* ✅ UPDATED BUTTON */}
+              <TouchableOpacity
+                style={styles.inspectionReportButton}
+                onPress={() => {
+                  setCarDetailsModalVisible(false);
+                  navigation.navigate('InspectionReport', {
+                    beadingCarId: selectedCarForDetails.beadingCarId,
+                  });
+                }}>
                 <MaterialCommunityIcons name="file-document-outline" size={20} color="#a9acd6" />
                 <Text style={styles.inspectionReportText}>View Inspection Report</Text>
               </TouchableOpacity>
             </View>
+
             <View style={styles.priceTimerSection}>
               <View style={styles.priceBox}>
                 <Text style={styles.priceLabel}>Amount: ₹{currentBid.toLocaleString()}</Text>
@@ -1084,7 +1095,7 @@ const HomeScreen: React.FC = () => {
       {/* CAR DETAILS MODAL */}
       {renderCarDetailsModal()}
 
-      {/* LOW BALANCE WARNING */}
+      {/* LOW BALANCE WARNING
       {showLowBalanceWarning && (
         <View style={styles.warningFixedContainer}>
           <View style={styles.warningIconText}>
@@ -1108,10 +1119,9 @@ const HomeScreen: React.FC = () => {
             <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
-      )}
+      )} */}
     </SafeAreaView>
   );
 };
 
 export default HomeScreen;
-    
