@@ -44,13 +44,13 @@ type LoginScreenNavigationProp = StackNavigationProp<
 >;
 
 const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('asif.attar@caryanam.in');
+  const [password, setPassword] = useState('Pass@123');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const navigation = useNavigation<LoginScreenNavigationProp>();
-  const {connectWebSocket} = useWebSocket();
+  const {connectWebSocket} = useWebSocket();987654 
 
   const storeAuthData = async (
     token: string,

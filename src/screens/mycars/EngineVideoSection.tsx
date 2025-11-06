@@ -79,7 +79,7 @@ const EngineVideoSection: React.FC<EngineVideoSectionProps> = ({
           style={styles.video}
           controls={true}
           resizeMode="contain"
-          paused={true}
+          paused={false}
           onError={error => {
             console.error('Video Error:', error);
           }}
