@@ -1,4 +1,3 @@
-// HomeScreen.tsx - FINAL OPTIMIZED VERSION (Bid Loading Fixed) + LOGO INSTEAD OF PROFILE + LOCATION REMOVED
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
@@ -219,14 +218,27 @@ const HomeScreen: React.FC = () => {
     )}:${String(seconds).padStart(2, '0')}`;
   }, []);
 
+  // === IMMEDIATE CAR DISPLAY (FALLBACK) ===
+  useEffect(() => {
+    console.log('🔍 IMMEDIATE DISPLAY - liveCars count:', liveCars.length);
+    // Set filteredLiveCars immediately when liveCars changes
+    if (liveCars.length > 0) {
+      console.log('✅ Setting filteredLiveCars immediately to show cars');
+      setFilteredLiveCars(liveCars);
+    }
+  }, [liveCars]);
+
   // === AUCTION TIME LOGIC ===
   useEffect(() => {
+    console.log('🔍 AUCTION TIME LOGIC - liveCars:', liveCars.length);
+    console.log('🔍 liveCars data:', JSON.stringify(liveCars, null, 2));
     const now = Date.now();
     const newAuctionTimes: {[key: string]: {start: number; end: number}} = {
       ...carAuctionTimes,
     };
     let hasNewCars = false;
     liveCars.forEach(car => {
+      console.log(`🔍 Processing car ${car.id}:`, car);
       if (car.id && !carAuctionTimes[car.id]) {
         let startTime =
           parseDateTime(car.auctionStartTime) ||
@@ -237,15 +249,36 @@ const HomeScreen: React.FC = () => {
           parseDateTime(car.auctionEndTime) ||
           parseDateTime(car.endTime) ||
           startTime + AUCTION_DURATION_MS;
+
+        // Ensure endTime is always in the future
+        if (endTime <= now) {
+          console.log(`⚠️ Car ${car.id} has past endTime (${endTime}), setting to future`);
+          endTime = now + AUCTION_DURATION_MS; // Set to 30 minutes from now
+          startTime = now;
+        }
+
+        console.log(`✅ Setting auction time for car ${car.id}:`, {
+          startTime,
+          endTime,
+          remainingMs: endTime - now,
+          remainingMinutes: Math.floor((endTime - now) / 60000)
+        });
         newAuctionTimes[car.id] = {start: startTime, end: endTime};
         hasNewCars = true;
       }
     });
-    if (hasNewCars) setCarAuctionTimes(newAuctionTimes);
+    if (hasNewCars) {
+      console.log('✅ Setting carAuctionTimes:', newAuctionTimes);
+      setCarAuctionTimes(newAuctionTimes);
+    }
   }, [liveCars, carAuctionTimes, parseDateTime]);
 
   useEffect(() => {
-    if (Object.keys(carAuctionTimes).length === 0) return;
+    console.log('🔍 FILTERING EFFECT - carAuctionTimes keys:', Object.keys(carAuctionTimes).length);
+    if (Object.keys(carAuctionTimes).length === 0) {
+      console.log('⚠️ No carAuctionTimes, skipping filtering');
+      return;
+    }
     if (countdownInterval.current) clearInterval(countdownInterval.current);
     countdownInterval.current = setInterval(() => {
       const now = Date.now();
@@ -253,17 +286,30 @@ const HomeScreen: React.FC = () => {
       const activeCars: Car[] = [];
       const expiredCarIds: string[] = [];
       liveCars.forEach(car => {
-        if (!car.id) return;
+        if (!car.id) {
+          console.log('⚠️ Car has no id, skipping:', car);
+          return;
+        }
         const auctionTime = carAuctionTimes[car.id];
-        if (!auctionTime) return;
+        if (!auctionTime) {
+          console.log(`⚠️ No auction time for car ${car.id}, keeping it visible`);
+          // Keep cars visible even if they don't have auction times set yet
+          activeCars.push(car);
+          newTimers[car.id] = '00:30:00'; // Default timer
+          return;
+        }
         const remainingMs = auctionTime.end - now;
+        console.log(`🔍 Car ${car.id} - remainingMs: ${remainingMs}, end: ${auctionTime.end}, now: ${now}`);
         if (remainingMs > 0) {
           newTimers[car.id] = formatCountdown(remainingMs);
           activeCars.push(car);
         } else {
+          console.log(`⏰ Car ${car.id} auction expired, removing`);
           expiredCarIds.push(car.id);
         }
       });
+      console.log('🔍 Active cars count:', activeCars.length);
+      console.log('🔍 Expired cars:', expiredCarIds);
       setCountdownTimers(newTimers);
       setFilteredLiveCars(activeCars);
       if (expiredCarIds.length > 0) {
@@ -355,7 +401,7 @@ const HomeScreen: React.FC = () => {
     bidCarId: string,
   ): Promise<LivePriceData | null> => {
     try {
-      const livePriceUrl = `https://caryanamindia.prodchunca.in.net/Bid/getliveValue?bidCarId=${bidCarId}`;
+      const livePriceUrl = `http://192.168.1.72:8086/Bid/getliveValue?bidCarId=${bidCarId}`;
       const response = await fetch(livePriceUrl);
       const data = await response.json();
       const price = data?.object?.price ?? 0;
@@ -387,7 +433,7 @@ const HomeScreen: React.FC = () => {
     bidCarId: string,
   ) => {
     try {
-      const imageUrl = `https://caryanamindia.prodchunca.in.net/uploadFileBidCar/getByBidCarID?beadingCarId=${beadingCarId}`;
+      const imageUrl = `http://192.168.1.72:8086/uploadFileBidCar/getByBidCarID?beadingCarId=${beadingCarId}`;
       const imageResponse = await fetch(imageUrl);
       const imageText = await imageResponse.text();
       let imageDataArray: any[] = [];
@@ -408,7 +454,7 @@ const HomeScreen: React.FC = () => {
             item.subtype?.toLowerCase() === 'coverimage') &&
           String(item.beadingCarId) === String(beadingCarId),
       );
-      const carIdUrl = `https://caryanamindia.prodchunca.in.net/BeadingCarController/getByBidCarId/${bidCarId}`;
+      const carIdUrl = `http://192.168.1.72:8086/BeadingCarController/getByBidCarId/${bidCarId}`;
       const carIdResponse = await fetch(carIdUrl);
       const carIdText = await carIdResponse.text();
       let carIdData: any = null;
@@ -539,7 +585,7 @@ const HomeScreen: React.FC = () => {
         amount: bidValue,
       };
 
-      const bidUrl = `https://caryanamindia.prodchunca.in.net/Bid/placeBid?bidCarId=${selectedCar.bidCarId}`;
+      const bidUrl = `http://192.168.1.72:8086/Bid/placeBid?bidCarId=${selectedCar.bidCarId}`;
       const response = await fetch(bidUrl, {
         method: 'POST',
         headers: {
@@ -640,12 +686,11 @@ const HomeScreen: React.FC = () => {
           </View>
         )}
         <View style={styles.cardDetails}>
-          {carDetails && (
-            <Text style={styles.carName}>
-              {carDetails.brand} {carDetails.model} (
-              {carDetails.variant?.trim()})
-            </Text>
-          )}
+          <Text style={styles.carName}>
+            {carDetails?.brand || car.make || 'Car'}{' '}
+            {carDetails?.model || car.model || 'Model'} (
+            {(carDetails?.variant || car.variant || 'Variant')?.trim()})
+          </Text>
           <View style={styles.locationRow}>
             <MaterialCommunityIcons
               name="map-marker"
@@ -653,14 +698,14 @@ const HomeScreen: React.FC = () => {
               color="#a9acd6"
             />
             <Text style={styles.locationTextSmall}>
-              {carDetails?.city || car.city} •{' '}
-              {carDetails?.registration || car.rtoCode}
+              {carDetails?.city || car.city || 'Unknown'} •{' '}
+              {carDetails?.registration || car.rtoCode || 'N/A'}
             </Text>
           </View>
           <Text style={styles.carInfo}>
-            {carDetails?.kmDriven?.toLocaleString() || car.kmsDriven} km •{' '}
-            {carDetails?.ownerSerial || car.owner} Owner •{' '}
-            {carDetails?.fuelType || car.fuelType}
+            {(carDetails?.kmDriven || car.kmsDriven || 0).toLocaleString()} km •{' '}
+            {carDetails?.ownerSerial || car.owner || '1st'} Owner •{' '}
+            {carDetails?.fuelType || car.fuelType || 'Petrol'}
           </Text>
           <View style={styles.bidSection}>
             <View>

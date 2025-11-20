@@ -1,8 +1,8 @@
 // components/LiveBid.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { View, FlatList } from "react-native";
 import Card from "./cards";
-import useWebSocket from "../../Utilies/websocket";
+import { useWebSocket } from "../../utility/WebSocketConnection";
 
 interface LiveCar {
   bidCarId: string;
@@ -13,17 +13,16 @@ interface LiveCar {
 }
 
 const LiveBid: React.FC = () => {
-  const { getAllLiveCars } = useWebSocket();
-  const [liveCars, setLiveCars] = useState<LiveCar[]>([]);
+  const { getLiveCars, liveCars } = useWebSocket();
 
   useEffect(() => {
-    getAllLiveCars(); // You may want to update your hook to set liveCars in state
-  }, []);
+    getLiveCars();
+  }, [getLiveCars]);
 
   return (
     <View style={{ flex: 1, padding: 10 }}>
       <FlatList
-        data={liveCars}
+        data={liveCars as LiveCar[]}
         keyExtractor={(item) => item.bidCarId}
         renderItem={({ item }) => <Card cardData={item} />}
         numColumns={2}

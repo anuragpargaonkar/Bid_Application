@@ -1,8 +1,7 @@
 // components/HighestBidAmount.tsx
 import React, { useEffect } from "react";
 import { Text } from "react-native";
-import useWebSocket from "../../Utilies/websocket";
-
+import { useWebSocket } from "../../utility/WebSocketConnection";
 interface HighestBidAmountProps {
   bidCarId: string; // Updated to match your car ID naming
 }

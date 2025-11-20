@@ -5,8 +5,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import {useNavigation, NavigationProp} from '@react-navigation/native';
-import useWebSocket from '../../Utilies/websocket';
-
+import {useWebSocket} from '../../utility/WebSocketConnection';
 dayjs.extend(duration);
 
 export type RootStackParamList = {

@@ -1,5 +1,3 @@
-// Login.tsx - FINAL (Dealer validation + Centered Logo + Curved Card)
-
 import React, {useState} from 'react';
 import {
   View,
@@ -44,13 +42,13 @@ type LoginScreenNavigationProp = StackNavigationProp<
 >;
 
 const Login = () => {
-  const [username, setUsername] = useState('asif.attar@caryanam.in');
+  const [username, setUsername] = useState('dealer@gmail.com');
   const [password, setPassword] = useState('Pass@123');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const navigation = useNavigation<LoginScreenNavigationProp>();
-  const {connectWebSocket} = useWebSocket();987654 
+  const {connectWebSocket} = useWebSocket();
 
   const storeAuthData = async (
     token: string,
@@ -116,7 +114,7 @@ const Login = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        'https://caryanamindia.prodchunca.in.net/jwt/login',
+        'http://192.168.1.72:8086/jwt/login',
         {
           method: 'POST',
           headers: {
