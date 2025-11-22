@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import {Client, IMessage, StompSubscription} from '@stomp/stompjs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
- 
+
 interface WebSocketContextType {
   isConnected: boolean;
   placeBid: (userData: BidUserData) => Promise<any>;
@@ -27,23 +27,23 @@ interface WebSocketContextType {
   connectionError: string | null;
   connectionStatus: string;
 }
- 
+
 interface WebSocketProviderProps {
   children: ReactNode;
 }
- 
+
 interface BidUserData {
   userId: string;
   bidCarId: string;
   amount: number;
 }
- 
+
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
- 
+
 const API_ENDPOINT_WS = 'ws://192.168.1.72:8086/Aucbidding/websocket';
 // const API_ENDPOINT_HTTP =
 //   'https://caryanamindia.prodchunca.in.net/biddingHTTP/liveCars';
- 
+
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
 }) => {
@@ -53,7 +53,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const [connectionStatus, setConnectionStatus] =
     useState<string>('disconnected');
   const [client, setClient] = useState<Client | null>(null);
- 
+
   const [topThreeBidsAmount, setTopThreeBidsAmount] = useState<any[]>([]);
   const [topThreeBidsAmountArray, setTopThreeBidsAmountArray] = useState<any[]>(
     [],
@@ -67,14 +67,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const authTokenRef = useRef<string | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stompClientRef = useRef<Client | null>(null);
- 
+
   const TOKEN_KEY = 'auth_token';
- 
+
   // --- Load Stored Token ---
   useEffect(() => {
     loadStoredToken();
   }, []);
- 
+
   const loadStoredToken = async () => {
     try {
       const token = await AsyncStorage.getItem(TOKEN_KEY);
@@ -86,16 +86,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       console.error('❌ Error loading stored token:', error);
     }
   };
- 
+
   const clearConnectionTimeout = () => {
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
     }
   };
- 
+
   // --- Fetch Live Cars via HTTP API ---
-  const fetchLiveCarsViaHTTP = async () => {
+  const fetchLiveCarsViaWS = async () => {
     console.log('🌐 Fetching live cars from API...');
     try {
       const headers: Record<string, string> = {
@@ -104,16 +104,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       };
       if (authTokenRef.current)
         headers['Authorization'] = `Bearer ${authTokenRef.current}`;
- 
+
       // const response = await fetch(API_ENDPOINT_HTTP, {method: 'GET', headers});
       const response = await fetch(API_ENDPOINT_WS, { method: 'GET', headers });
       console.log(`🌐 Fetch data:  ${response}`);
       console.log(`📡 Live Cars API Response: ${response.status}`);
- 
+
       if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status}`);
+        throw new Error(`WS Error: ${response.status}`);
       }
- 
+
       const carsData = await response.json();
       console.log('🌐 Live Cars Data received from API', carsData);
       if (Array.isArray(carsData)) {
@@ -139,36 +139,36 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       } else {
         console.warn('⚠️ Unexpected data format from live cars API');
       }
- 
+
       return true;
     } catch (error) {
       console.error('❌ Failed to fetch live cars:', error);
       return false;
     }
   };
- 
+
   const connectLiveCarsSocket = () => {
     console.log('📡 Connecting to WebSocket...');
- 
+
     // Append auth token if needed
     const urlWithToken = authTokenRef.current
       ? `${API_ENDPOINT_WS}?token=${authTokenRef.current}`
       : API_ENDPOINT_WS;
- 
+
     const ws = new WebSocket(urlWithToken);
- 
+
     ws.onopen = () => {
       console.log('✅ WebSocket Connected');
       // You can send an initial request if required by your backend
       // ws.send(JSON.stringify({ action: 'subscribe', topic: 'liveCars' }));
     };
- 
+
     ws.onmessage = (e) => console.log('Received:', e.data);
     // ws.onmessage = (event) => {
     //   try {
     //     const data = JSON.parse(event.data);
     //     console.log('📩 Message received:', data);
- 
+
     //     if (Array.isArray(data)) {
     //       // Replace entire list if data is an array
     //       const transformedData = data.map((car: any) => ({
@@ -188,7 +188,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     //         currentBid: car.currentBid || car.highestBid || car.startingBid || 0,
     //         ...car,
     //       }));
- 
+
     //       setLiveCars(transformedData);
     //       console.log(`🚗 Live cars updated: ${transformedData.length}`);
     //     } else if (data && data.carId) {
@@ -209,16 +209,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     //     console.error('❌ Failed to parse WebSocket message:', err);
     //   }
     // };
- 
+
     ws.onerror = (error) => {
       console.error('❌ WebSocket Error:', error.message);
     };
- 
+
     ws.onclose = (event) => {
       console.warn(`🔒 WebSocket Closed (code: ${event.code}). Reconnecting...`);
       setTimeout(connectWebSocket, 5000); // auto-reconnect after 5 seconds
     };
- 
+
     wsRef.current = ws;
     return true;
   };
@@ -234,14 +234,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       console.log('🔄 Connection already in progress...');
       return;
     }
- 
+
     setConnectionStatus('connecting');
     setConnectionError(null);
     isConnecting.current = true;
- 
+
     // Step 1: Fetch live cars via API first
     const success = await connectLiveCarsSocket();
- 
+
     // Step 2: Setup WebSocket for real-time updates if API call works
     if (success) {
       setupWebSocketClient();
@@ -258,7 +258,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       handleReconnect();
     }
   };
- 
+
   const handleReconnect = () => {
     if (reconnectAttempts.current < maxReconnectAttempts) {
       reconnectAttempts.current += 1;
@@ -270,16 +270,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       }, 3000);
     } else {
       console.error('🛑 Max reconnection attempts reached');
-      setConnectionError(
+      setConnectionError( 
         'Unable to connect to server. Please restart the app.',
       );
     }
   };
- 
+
   // --- Setup WebSocket Client ---
   const setupWebSocketClient = () => {
     if (stompClientRef.current && stompClientRef.current.connected) return;
- 
+
     const client = new Client({
       brokerURL: API_ENDPOINT_WS,
       connectHeaders: {Authorization: `Bearer ${authTokenRef.current}`},
@@ -288,56 +288,142 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
     });
- 
+
     client.onConnect = () => {
       console.log('✅ STOMP Connected');
       setIsConnected(true);
- 
-      const liveCarsSub = client.subscribe(
-        '/topic/liveCars',
-        (message: IMessage) => {
-          try {
-            const carsData = JSON.parse(message.body);
-            if (Array.isArray(carsData)) {
-              const transformedData = carsData.map((car: any) => ({
-                id:
-                  car.id || car.carId || car.bidCarId || String(Math.random()),
-                imageUrl: car.imageUrl || car.image || car.carImage,
-                city: car.city || 'Unknown',
-                make: car.make || 'Car',
-                model: car.model || 'Model',
-                currentBid: car.currentBid || 0,
-                ...car,
-              }));
-              setLiveCars(transformedData);
-              console.log(
-                `🚗 Updated via WebSocket: ${transformedData.length} cars`,
-              );
-            }
-          } catch (err) {
-            console.error('❌ Error parsing /topic/liveCars message:', err);
+      setConnectionStatus('connected');
+
+      // Subscribe to /topic/bids
+      if (!subscriptions.current['/topic/bids']) {
+        subscriptions.current['/topic/bids'] = client.subscribe(
+          '/topic/bids',
+          (message: IMessage) => {
+            const bid = JSON.parse(message.body);
+            // Handle bid message
           }
-        },
-      );
- 
-      subscriptions.current['/topic/liveCars'] = liveCarsSub;
+        );
+      }
+
+      // Subscribe to /topic/topThreeBids
+      if (!subscriptions.current['/topic/topThreeBids']) {
+        subscriptions.current['/topic/topThreeBids'] = client.subscribe(
+          '/topic/topThreeBids',
+          (message: IMessage) => {
+            const topBids = JSON.parse(message.body);
+            setTopThreeBidsAmount(topBids);
+          }
+        );
+      }
+
+      // Subscribe to /topic/liveCars
+      if (!subscriptions.current['/topic/liveCars']) {
+        subscriptions.current['/topic/liveCars'] = client.subscribe(
+          '/topic/liveCars',
+          (message: IMessage) => {
+            try {
+              const carsData = JSON.parse(message.body);
+              if (Array.isArray(carsData)) {
+                const transformedData = carsData.map((car: any) => ({
+                  id:
+                    car.id || car.carId || car.bidCarId || String(Math.random()),
+                  imageUrl: car.imageUrl || car.image || car.carImage,
+                  city: car.city || 'Unknown',
+                  make: car.make || 'Car',
+                  model: car.model || 'Model',
+                  currentBid: car.currentBid || 0,
+                  ...car,
+                }));
+                setLiveCars((prevCars) => [...transformedData]);
+                console.log(
+                  `🚗 Updated via WebSocket: ${transformedData.length} cars`,
+                );
+              }
+            } catch (err) {
+              console.error('❌ Error parsing /topic/liveCars message:', err);
+            }
+          },
+        );
+      }
+
+      // Publish to /topic/topBids
+      client.publish({ destination: `/topic/topBids` });
+
+      // Publish to /app/liveCars to request live cars data
+      client.publish({
+        destination: '/app/liveCars',
+      });
+      console.log('📤 Published request to /app/liveCars on STOMP connect');
     };
- 
+
     client.onWebSocketClose = () => {
       console.warn('⚠️ WebSocket closed');
       setConnectionStatus('disconnected');
       handleReconnect();
     };
- 
+
     client.activate();
     stompClientRef.current = client;
     setClient(client);
   };
- 
+
   const getLiveCars = () => {
-    connectLiveCarsSocket();
+    if (stompClientRef.current && stompClientRef.current.connected) {
+      stompClientRef.current.publish({
+        destination: '/app/liveCars',
+      });
+      console.log('📤 Published request to /app/liveCars');
+    } else {
+      console.log('⚠️ STOMP client not connected yet, will auto-publish on connect');
+      // Data will be fetched automatically when STOMP connects in setupWebSocketClient
+    }
   };
- 
+
+  const getTopThreeBids = (bidCarId: string) => {
+    if (stompClientRef.current && stompClientRef.current.connected) {
+      const bidRequest = {
+        bidCarId: bidCarId,
+      };
+
+      stompClientRef.current.publish({
+        destination: '/app/topThreeBids',
+        body: JSON.stringify(bidRequest),
+      });
+
+      subscriptions.current[`/topic/topThreeBids_${bidCarId}`] =
+        stompClientRef.current.subscribe(
+          `/topic/topThreeBids`,
+          (message: IMessage) => {
+            const topBids = JSON.parse(message.body);
+            setTopThreeBidsAmount(topBids);
+          },
+          { ack: 'client' }
+        );
+    } else {
+      console.log('⚠️ STOMP client not connected');
+    }
+  };
+
+  const refreshTopThreeBids = (bidCarId: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if (bidCarId && stompClientRef.current?.connected) {
+        stompClientRef.current.publish({ destination: `/topic/topBids` });
+
+        subscriptions.current[`/topic/topBids_${bidCarId}`] = 
+          stompClientRef.current.subscribe(
+            `/topBids/${bidCarId}`,
+            (message: IMessage) => {
+              const topBid = JSON.parse(message.body);
+              setTopThreeBidsAmountArray(topBid);
+              resolve(topBid);
+            }
+          );
+      } else {
+        reject('STOMP client not connected or bidCarId is missing');
+      }
+    });
+  };
+
   const placeBid = (userData: BidUserData): Promise<any> => {
     const bid = {
       placedBidId: null,
@@ -346,7 +432,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       amount: userData.amount,
       dateTime: new Date().toISOString(),
     };
- 
+
     return new Promise((resolve, reject) => {
       if (stompClientRef.current?.connected) {
         try {
@@ -354,26 +440,37 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
             destination: '/app/placeBid',
             body: JSON.stringify(bid),
           });
-          resolve({status: 'success', message: 'Bid placed successfully'});
+
+          subscriptions.current['/topic/bids'] = stompClientRef.current.subscribe(
+            '/topic/bids',
+            (message: IMessage) => {
+              const response = JSON.parse(message.body);
+              if (response?.status) {
+                resolve(response);
+              }
+            }
+          );
         } catch (error) {
           console.error('Error placing bid:', error);
           reject(error);
         }
-      } else reject('STOMP client not connected.');
+      } else {
+        reject('STOMP client not connected.');
+      }
     });
   };
- 
+
   const disconnectWebSocket = () => {
     setConnectionStatus('disconnected');
     isConnecting.current = false;
     clearConnectionTimeout();
- 
+
     Object.values(subscriptions.current).forEach(sub => sub.unsubscribe());
     subscriptions.current = {};
- 
+
     stompClientRef.current?.deactivate();
     stompClientRef.current = null;
- 
+
     setIsConnected(false);
     setIsAuthenticated(false);
     setClient(null);
@@ -381,16 +478,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     setTopThreeBidsAmount([]);
     setTopThreeBidsAmountArray([]);
   };
- 
+
   const contextValue: WebSocketContextType = {
     isConnected,
     placeBid,
-    getTopThreeBids: () => {},
+    getTopThreeBids,
     topThreeBidsAmount,
     topThreeBidsAmountArray,
     getLiveCars,
     liveCars,
-    refreshTopThreeBids: async () => [],
+    refreshTopThreeBids,
     client,
     subscriptions,
     connectWebSocket,
@@ -399,18 +496,17 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     connectionError,
     connectionStatus,
   };
- 
+
   return (
     <WebSocketContext.Provider value={contextValue}>
       {children}
     </WebSocketContext.Provider>
   );
 };
- 
+
 export const useWebSocket = (): WebSocketContextType => {
   const context = useContext(WebSocketContext);
   if (!context)
     throw new Error('useWebSocket must be used within a WebSocketProvider');
   return context;
 };
- 
